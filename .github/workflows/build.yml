@@ -50,3 +50,25 @@ jobs:
       name: github-pages
     steps:
       - uses: actions/deploy-pages@v4
+
+  # GitHub switches off hourly schedules in public repos after 60 days without a commit.
+  # Once a month (1st, 03:23 UTC run) this writes the date to keepalive.txt so that never happens.
+  keepalive:
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Monthly keep-alive commit
+        run: |
+          if [ "$(date -u +%d%H)" = "0103" ]; then
+            date -u +%Y-%m-%d > keepalive.txt
+            git config user.name "lcm-shop-index bot"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add keepalive.txt
+            git commit -m "Monthly keep-alive so the hourly build stays switched on"
+            git push
+          else
+            echo "Not the monthly keep-alive slot; nothing to do."
+          fi
