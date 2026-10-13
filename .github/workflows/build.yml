@@ -1,0 +1,52 @@
+name: Build shop index
+
+# Every hour (at 23 past) plus a manual "Run workflow" button.
+on:
+  schedule:
+    - cron: "23 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: How many products did the last index have?
+        id: last
+        run: |
+          n=$(curl -fsS "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/summary.json" | python3 -c "import sys,json; print(json.load(sys.stdin).get('products',''))" || true)
+          echo "count=$n" >> "$GITHUB_OUTPUT"
+          echo "Last published: ${n:-none}"
+
+      - name: Build index from the public store list
+        env:
+          LAST_COUNT: ${{ steps.last.outputs.count }}
+        run: python3 build_index.py
+
+      - name: Allow the shop to read it
+        run: |
+          cp README.md site/README.md 2>/dev/null || true
+          touch site/.nojekyll
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+    steps:
+      - uses: actions/deploy-pages@v4
