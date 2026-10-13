@@ -14,7 +14,7 @@
   function byName(a, b) { return a.localeCompare(b, 'en', { numeric: true }); }
 
   /* colour names -> a family (to spread colours across the grid) and a dot colour */
-  var FAM = [['red', /red|crimson|burgundy/i, '#c8102e'], ['black', /black|ebony|onyx/i, '#111'], ['grey', /grey|gray|silver|titanium|gunmetal|graphite|alloy|raw|natural|polished|stainless/i, '#9a9a9a'],
+  var FAM = [['red', /red|crimson|burgundy/i, '#c8102e'], ['black', /black|ebony|onyx/i, '#111'], ['silver', /silver|polished|chrome|stainless|raw|natural|bare|alloy(?!.*(red|black|grey|gray|blue|gold))/i, 'linear-gradient(135deg,#f4f4f4,#a9a9a9 55%,#e6e6e6)'], ['grey', /grey|gray|titanium|gunmetal|graphite|charcoal/i, '#7d7d7d'],
     ['gold', /gold|bronze|brass|copper|champagne/i, '#c9a227'], ['blue', /blue|navy|teal|cyan/i, '#1f5fbf'], ['green', /green|olive|khaki|od\b/i, '#4f6b2f'],
     ['orange', /orange/i, '#f15f24'], ['purple', /purple|violet|lilac/i, '#6a3fa0'], ['pink', /pink|rose/i, '#e07aa5'], ['white', /white|ivory/i, '#f4f4f4'],
     ['yellow', /yellow|lime/i, '#e5c100'], ['tan', /tan|sand|desert|beige|coyote|brown/i, '#b08d5b']];
@@ -263,10 +263,14 @@
       }
       var cnames = it.cn || (it.cv ? it.cv.map(function (x) { return x[0]; }) : []);
       if (cnames.length > 1) {
-        var fams = [];
-        cnames.forEach(function (x) { var f = fam(x); if (f[2] && fams.indexOf(f[2]) < 0) fams.push(f[2]); });
-        if (fams.length > 1) dots = '<span class="lcm-card-sw" title="' + esc(cnames.join(', ')) + '">' +
-          fams.slice(0, 6).map(function (h) { return '<i style="background:' + h + '"></i>'; }).join('') + (fams.length > 6 ? '<em>+' + (fams.length - 6) + '</em>' : '') + '</span>';
+        var photo = {}; (it.cv || []).forEach(function (x) { photo[x[0]] = x[1]; });
+        var shown = 0, ds = '';
+        cnames.forEach(function (x) {
+          var f = fam(x); if (!f[2] || shown >= 6) return; shown++;
+          var out = (it.co || []).indexOf(x) >= 0;
+          ds += '<i class="' + (out ? 'x' : '') + '" style="background:' + f[2] + '" title="' + esc(x) + (out ? ' (out of stock)' : '') + '"' + (photo[x] ? ' data-img="' + esc(photo[x]) + '?format=500w"' : '') + '></i>';
+        });
+        if (shown > 1) dots = '<span class="lcm-card-sw">' + ds + (cnames.length > shown ? '<em>+' + (cnames.length - shown) + '</em>' : '') + '</span>';
       }
       var img = show ? '<img loading="lazy" decoding="async" src="' + esc(show) + '?format=500w" alt="' + esc(label) + '">' : '';
       var altImg = alt && alt !== show ? '<img class="lcm-card-alt" alt="" aria-hidden="true" data-src="' + esc(alt) + '?format=500w">' : '';
@@ -277,11 +281,29 @@
       return a;
     }
     /* hover photo: only fetched when the mouse first goes over a card */
+    var canHover = window.matchMedia && matchMedia('(hover: hover)').matches;
+    function overlay(cardEl) {
+      var im = cardEl.querySelector('.lcm-card-alt');
+      if (!im) { im = el('img', 'lcm-card-alt'); im.alt = ''; im.setAttribute('aria-hidden', 'true'); var box = cardEl.querySelector('.lcm-card-img'); box.insertBefore(im, box.querySelector('.lcm-card-badge')); }
+      return im;
+    }
+    function showOn(im, src) {
+      if (im.getAttribute('src') === src) { im.classList.add('ok'); return; }
+      im.classList.remove('ok'); im.onload = function () { im.classList.add('ok'); }; im.src = src;
+    }
     grid.addEventListener('mouseover', function (e) {
-      var im = e.target.closest && e.target.closest('.lcm-card'); im = im && im.querySelector('.lcm-card-alt[data-src]');
-      if (!im || !(window.matchMedia && matchMedia('(hover: hover)').matches)) return;
-      im.onload = function () { im.classList.add('ok'); };
-      im.src = im.getAttribute('data-src'); im.removeAttribute('data-src');
+      if (!canHover || !e.target.closest) return;
+      var c = e.target.closest('.lcm-card'); if (!c) return;
+      var dot = e.target.closest('.lcm-card-sw i[data-img]');
+      var im = overlay(c);
+      if (!im.hasAttribute('data-def')) im.setAttribute('data-def', im.getAttribute('data-src') || '');
+      if (dot) { c.classList.add('lcm-dot'); showOn(im, dot.getAttribute('data-img')); return; }
+      c.classList.remove('lcm-dot');
+      var def = im.getAttribute('data-def'); if (def) showOn(im, def); else im.classList.remove('ok');
+    });
+    grid.addEventListener('mouseout', function (e) {
+      var c = e.target.closest && e.target.closest('.lcm-card');
+      if (c && !c.contains(e.relatedTarget)) c.classList.remove('lcm-dot');
     });
     function drawGrid(reset) {
       if (reset) { grid.innerHTML = ''; grid._n = 0; used = {}; recent = []; }

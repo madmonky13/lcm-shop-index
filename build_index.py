@@ -120,14 +120,19 @@ def item_row(it, order):
         seen_img.add(img)
         cv.append([name, img, ok])
     # every colour name (for the dots), and only photos that are really linked to a colour (for the grid)
-    names = []
+    names, instock = [], set()
     for v in vs:
         attrs = v.get("attributes") or {}
         name = next((str(val) for key, val in attrs.items() if "colo" in key.lower()), None)
         if name and name not in names:
             names.append(name)
+        if name and (v.get("unlimited") or (v.get("qtyInStock") or 0) > 0):
+            instock.add(name)
     if len(names) > 1:
         row["cn"] = names
+        out_of_stock = [n for n in names if n not in instock]
+        if out_of_stock:
+            row["co"] = out_of_stock                  # colours currently out of stock (faded dot)
         if len(cv) < len(names):
             row["_unlinked"] = [n for n in names if n not in {c[0] for c in cv}]
     if len(cv) > 1:
