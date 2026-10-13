@@ -29,13 +29,29 @@
     }).catch(function () { return {}; });
   }
 
+  /* the index is stored compactly (v2): put the short category numbers, photo and link prefixes back */
+  function norm(idx) {
+    if (!idx || idx.v < 2 || idx._n) return idx;
+    var img = idx.img || '';
+    idx.cats = idx.cats.map(function (c, n) { return { id: 'c' + n, n: c.n, p: c.p == null ? null : 'c' + c.p }; });
+    idx.items.forEach(function (it) {
+      it.c = (it.c || []).map(function (x) { return 'c' + x; });
+      if (it.i && !/^https?:/.test(it.i)) it.i = img + it.i;
+      if (it.i2 && !/^https?:/.test(it.i2)) it.i2 = img + it.i2;
+      if (it.u && it.u.charAt(0) !== '/') it.u = '/store/p/' + it.u;
+    });
+    idx._n = 1;
+    return idx;
+  }
+
   function start(box) {
     if (box.__lcm) return; box.__lcm = 1;
     var rootName = box.getAttribute('data-root') || '';
     var want = (box.getAttribute('data-filters') || 'vehicle,brand').split(',').map(function (s) { return s.trim(); });
     box.innerHTML = '<div class="lcm-shop-loading">Loading products\u2026</div>';
-    Promise.all([fetch(INDEX, { cache: 'default' }).then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); }), vehicles()])
-      .then(function (res) { build(box, res[0], res[1], rootName, want); })
+    var idxReq = window.__lcmIdx || fetch(INDEX, { cache: 'default' }).then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); });
+    Promise.all([idxReq, vehicles()])
+      .then(function (res) { build(box, norm(res[0]), res[1], rootName, want); })
       .catch(function (e) { box.innerHTML = ''; box.style.display = 'none'; if (window.console) console.warn('LCM shop index not available, keeping the normal product block', e); });
   }
 
@@ -81,6 +97,7 @@
       else if (st.sort === 'low') a.sort(function (x, y) { return (x.p || 0) - (y.p || 0); });
       else if (st.sort === 'high') a.sort(function (x, y) { return (y.p || 0) - (x.p || 0); });
       else if (st.sort === 'az') a.sort(function (x, y) { return byName(x.t, y.t); });
+      else if (st.sort === 'za') a.sort(function (x, y) { return byName(y.t, x.t); });
       else a.sort(function (x, y) { return ((st.mf ? (x.any ? 1 : 0) - (y.any ? 1 : 0) : 0)) || ((y.s - x.s)) || (x.o - y.o); });
       return a;
     }
@@ -89,25 +106,41 @@
     box.innerHTML = '';
     box.classList.add('lcm-newshop');
     var side = el('aside', 'lcm-shop-side'), main = el('div', 'lcm-shop-main');
-    var toggle = el('button', 'lcm-shop-toggle', 'Filter &amp; sort'); toggle.type = 'button';
+    var toggle = el('button', 'lcm-shop-toggle', 'Filter'); toggle.type = 'button';
     toggle.onclick = function () { box.classList.toggle('lcm-shop-open'); };
     var bar = el('div', 'lcm-shop-bar'), grid = el('div', 'lcm-shop-grid'), more = el('div', 'lcm-shop-more');
     main.appendChild(bar); main.appendChild(grid); main.appendChild(more);
     box.appendChild(toggle); box.appendChild(side); box.appendChild(main);
 
-    function section(title, body) { var s = el('div', 'lcm-shop-sec'); s.appendChild(el('div', 'lcm-shop-h', esc(title))); s.appendChild(body); return s; }
-    function select(opts, val, onchange, any) {
-      var s = el('select', 'lcm-shop-sel');
-      s.innerHTML = '<option value="">' + esc(any) + '</option>' + opts.map(function (o) { return '<option' + (o[0] === val ? ' selected' : '') + ' value="' + esc(o[0]) + '">' + esc(o[1]) + '</option>'; }).join('');
-      s.onchange = function () { onchange(s.value); };
-      return s;
+    /* ---- filter panel, built to look like the old Universal Filter drop-downs ---- */
+    var open = { cat: true };
+    function dd(key, name, valueText, active, buildList, onReset) {
+      var b = el('div', 'lcm-f-block lcm-f-dd' + (open[key] ? ' open' : '') + (active ? ' active' : ''));
+      var lab = el('button', 'lcm-f-label'); lab.type = 'button';
+      lab.innerHTML = '<span class="lcm-f-title"><span class="lcm-f-name">' + esc(name) + '</span><span class="lcm-f-val">' + (active ? ' : ' + esc(valueText) : ' : All') + '</span></span>' +
+        (active ? '<span class="lcm-f-x" title="Clear">×</span>' : '<span class="lcm-f-chev"></span>');
+      lab.onclick = function (e) {
+        if (e.target.classList.contains('lcm-f-x')) { onReset(); return; }
+        open[key] = !open[key]; b.classList.toggle('open', !!open[key]);
+      };
+      var ul = el('ul', 'lcm-f-list'); buildList(ul);
+      b.appendChild(lab); b.appendChild(ul);
+      return b;
     }
-    function buttons(opts, val, onclick) {
-      var w = el('div', 'lcm-shop-btns');
+    function opt(ul, text, on, depth, onclick) {
+      var li = el('li', 'lcm-f-opt d' + depth), a = el('a', on ? 'on' : '', esc(text)); a.href = '#';
+      a.onclick = function (e) { e.preventDefault(); onclick(); };
+      li.appendChild(a); ul.appendChild(li);
+    }
+    function buttons(title, opts, val, onclick) {
+      var w = el('div', 'lcm-f-block lcm-has-fbtns'), box = el('div', 'lcm-fbtns');
+      box.appendChild(el('div', 'lcm-fbtns-h', esc(title)));
+      var row = el('div', 'lcm-fbtns-row');
       [['', 'All']].concat(opts).forEach(function (o) {
         var b = el('button', o[0] === val ? 'on' : '', esc(o[1])); b.type = 'button';
-        b.onclick = function () { onclick(o[0]); }; w.appendChild(b);
+        b.onclick = function () { onclick(o[0]); }; row.appendChild(b);
       });
+      box.appendChild(row); w.appendChild(box);
       return w;
     }
     function counts(skip, key) {
@@ -116,50 +149,61 @@
 
     function drawSide() {
       side.innerHTML = '';
-      /* search */
-      var sw = el('div', 'lcm-shop-search'), si = el('input'); si.type = 'search'; si.placeholder = 'Search ' + (rootName || 'all products').toLowerCase() + '\u2026'; si.value = st.s;
-      var t; si.oninput = function () { clearTimeout(t); t = setTimeout(function () { st.s = si.value.trim(); change(true); }, 200); };
-      sw.appendChild(si); side.appendChild(sw);
-      /* categories */
+      var wrap = el('div', 'lcm-f-wrap'); side.appendChild(wrap);
+      /* category */
       var cc = counts('cat', function (it) { return Object.keys(it._cats); });
-      var tree = el('div', 'lcm-shop-tree');
-      function addCat(id, depth) {
-        if (!cc[id]) return;
-        var a = el('a', (st.cat === id ? 'on ' : '') + 'd' + depth, esc(cats[id].n) + ' <span>' + cc[id] + '</span>');
-        a.href = '#'; a.onclick = function (e) { e.preventDefault(); st.cat = st.cat === id ? null : id; change(); };
-        tree.appendChild(a);
-        (kids[id] || []).slice().sort(function (x, y) { return byName(cats[x].n, cats[y].n); }).forEach(function (k) { addCat(k, depth + 1); });
-      }
-      var allA = el('a', (st.cat ? '' : 'on ') + 'd0', 'All ' + esc(rootName || 'products') + ' <span>' + items.filter(function (it) { return match(it, 'cat'); }).length + '</span>');
-      allA.href = '#'; allA.onclick = function (e) { e.preventDefault(); st.cat = null; change(); }; tree.appendChild(allA);
-      (root ? (kids[root.id] || []) : (kids.top || [])).slice().sort(function (x, y) { return byName(cats[x].n, cats[y].n); }).forEach(function (k) { addCat(k, 1); });
-      side.appendChild(section('Category', tree));
-      /* vehicle */
+      wrap.appendChild(dd('cat', 'Category', st.cat ? path(st.cat).join(', ') : '', !!st.cat, function (ul) {
+        function addCat(id, depth) {
+          if (!cc[id]) return;
+          var on = !!(st.cat && (st.cat === id || (function () { for (var k = cats[st.cat] && cats[st.cat].p; k; k = cats[k].p) if (k === id) return true; return false; })()));
+          opt(ul, cats[id].n, on, depth, function () { st.cat = st.cat === id ? (cats[id].p && cats[id].p !== (root && root.id) ? cats[id].p : null) : id; change(); });
+          (kids[id] || []).slice().sort(function (x, y) { return byName(cats[x].n, cats[y].n); }).forEach(function (k) { addCat(k, depth + 1); });
+        }
+        if (root) { opt(ul, root.n, !st.cat, 1, function () { st.cat = null; change(); }); (kids[root.id] || []).slice().sort(function (x, y) { return byName(cats[x].n, cats[y].n); }).forEach(function (k) { addCat(k, 2); }); }
+        else (kids.top || []).slice().sort(function (x, y) { return byName(cats[x].n, cats[y].n); }).forEach(function (k) { addCat(k, 1); });
+      }, function () { st.cat = null; change(); }));
+      /* vehicle: manufacturer + model */
       if (want.indexOf('vehicle') >= 0) {
-        var makes = uniq(Object.keys(vmap).concat(Object.keys(counts('veh', function (it) { return it.mf; })))).sort(byName);
-        var vw = el('div', 'lcm-shop-veh');
-        vw.appendChild(select(makes.map(function (m) { return [m, m]; }), st.mf, function (v) { st.mf = v; st.md = ''; change(); }, 'Any make'));
-        var models = st.mf ? uniq((vmap[st.mf] || []).concat(Object.keys(counts('veh', function (it) { return (it.mf || []).indexOf(st.mf) >= 0 ? it.md : []; })))).sort(byName) : [];
-        var ms = select(models.map(function (m) { return [m, m]; }), st.md, function (v) { st.md = v; change(); }, 'Any model');
-        ms.disabled = !st.mf; vw.appendChild(ms);
-        side.appendChild(section('Your vehicle', vw));
+        var mc = counts('veh', function (it) { return it.mf; });
+        var makes = uniq(Object.keys(vmap).concat(Object.keys(mc))).sort(byName);   /* universal kit fits every make, so list them all */
+        wrap.appendChild(dd('mf', 'Manufacturer', st.mf, !!st.mf, function (ul) {
+          makes.forEach(function (m) { opt(ul, m, st.mf === m, 1, function () { st.mf = st.mf === m ? '' : m; st.md = ''; open.mf = false; if (st.mf) open.md = true; change(); }); });
+        }, function () { st.mf = ''; st.md = ''; change(); }));
+        var mdc = counts('veh', function (it) { return st.mf && (it.mf || []).indexOf(st.mf) < 0 ? [] : it.md; });
+        var allModels = [].concat.apply([], Object.keys(vmap).map(function (k) { return vmap[k]; }));
+        var models = uniq((st.mf ? (vmap[st.mf] || []) : allModels).concat(Object.keys(mdc))).sort(byName);
+        wrap.appendChild(dd('md', 'Model', st.md, !!st.md, function (ul) {
+          models.forEach(function (m) { opt(ul, m, st.md === m, 1, function () { st.md = st.md === m ? '' : m; open.md = false; change(); }); });
+        }, function () { st.md = ''; change(); }));
       }
-      /* axle / voltage */
+      /* axle / voltage as buttons (same as before) */
       [['axle', 'ax', 'Axle'], ['voltage', 'vo', 'Voltage']].forEach(function (f) {
         if (want.indexOf(f[0]) < 0) return;
         var c = counts(f[1], function (it) { return it[f[1]]; });
         var vals = Object.keys(c).sort(byName); if (!vals.length) return;
-        side.appendChild(section(f[2], buttons(vals.map(function (v) { return [v, v]; }), st[f[1]], function (v) { st[f[1]] = v; change(); })));
+        wrap.appendChild(buttons(f[2], vals.map(function (v) { return [v, v]; }), st[f[1]], function (v) { st[f[1]] = v; change(); }));
       });
       /* brand */
       if (want.indexOf('brand') >= 0) {
         var bc = counts('b', function (it) { return it.b; });
-        side.appendChild(section('Brand', select(Object.keys(bc).sort(byName).map(function (b) { return [b, b + ' (' + bc[b] + ')']; }), st.b, function (v) { st.b = v; change(); }, 'All brands')));
+        wrap.appendChild(dd('b', 'Brand', st.b, !!st.b, function (ul) {
+          Object.keys(bc).sort(byName).forEach(function (b) { opt(ul, b, st.b === b, 1, function () { st.b = st.b === b ? '' : b; open.b = false; change(); }); });
+        }, function () { st.b = ''; change(); }));
       }
       /* sort */
-      side.appendChild(section('Sort', select([['new', 'Newest'], ['low', 'Price: low to high'], ['high', 'Price: high to low'], ['az', 'Name: A\u2013Z']], st.sort === 'best' ? '' : st.sort, function (v) { st.sort = v || 'best'; change(); }, st.mf ? 'Best match for your vehicle' : 'Recommended')));
-      var help = el('div', 'lcm-shop-help', '<b>Not sure what fits?</b> <a href="/contact">Message us \u2192</a>');
-      side.appendChild(help);
+      var sorts = [['az', 'A-Z'], ['za', 'Z-A'], ['low', '£-£££'], ['high', '£££-£'], ['new', 'Newest']];
+      var cur = sorts.filter(function (x) { return x[0] === st.sort; })[0];
+      var sb = dd('sort', 'Sort', cur ? cur[1] : '', !!cur, function (ul) {
+        sorts.forEach(function (x) { opt(ul, x[1], st.sort === x[0], 1, function () { st.sort = st.sort === x[0] ? 'best' : x[0]; open.sort = false; change(); }); });
+      }, function () { st.sort = 'best'; change(); });
+      if (!cur) sb.querySelector('.lcm-f-val').textContent = '';
+      wrap.appendChild(sb);
+      /* search */
+      var sw = el('div', 'lcm-f-block lcm-f-search'), si = el('input'); si.type = 'search'; si.placeholder = 'Search'; si.value = st.s;
+      var t; si.oninput = function () { clearTimeout(t); t = setTimeout(function () { st.s = si.value.trim(); change(true); }, 200); };
+      sw.appendChild(si); wrap.appendChild(sw);
+      /* same help box as before */
+      side.appendChild(el('div', 'lcm-help', '<b>Not sure what fits?</b><p>Send us your VIN or a photo and we’ll check before you order.</p><a href="/contact">MESSAGE US →</a>'));
     }
 
     var list = [];

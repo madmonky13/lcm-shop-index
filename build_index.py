@@ -20,6 +20,7 @@ MIN_ITEMS = 500           # never publish an index smaller than this
 MAX_DROP = 0.2            # or one more than 20% smaller than the last published one
 UNIVERSAL_MODELS = 20     # tagged for this many models or more = fits any vehicle
 TAG_PREFIXES = ("Manufacturer", "Model", "Brand", "Axle", "Voltage")
+IMG_PREFIX = "https://images.squarespace-cdn.com/content/v1/5ec6ca0fdd424c12b47a2bd3/"
 
 
 def get(url, tries=4):
@@ -143,11 +144,25 @@ def main():
     ids = {c["id"] for c in cats}
     orphans = sum(1 for r in rows if r["c"] and not set(r["c"]) & ids)
 
+    # compact form: short category numbers, image/link prefixes stripped (shop.js adds them back)
+    num = {c["id"]: n for n, c in enumerate(cats)}
+    ccats = [{"n": c["n"], "p": num.get(c["p"]) if c["p"] else None} for c in cats]
+    for r in rows:
+        r["c"] = [num[x] for x in r["c"] if x in num]
+        r.pop("id", None)
+        for k in ("i", "i2"):
+            if r.get(k, "").startswith(IMG_PREFIX):
+                r[k] = r[k][len(IMG_PREFIX):]
+        if (r.get("u") or "").startswith("/store/p/"):
+            r["u"] = r["u"][len("/store/p/"):]
+        if r.get("a"):
+            r["a"] = int(r["a"] // 86400000)          # days since 1970
     index = {
-        "v": 1,
+        "v": 2,
         "built": int(time.time() * 1000),
         "count": len(rows),
-        "cats": cats,
+        "img": IMG_PREFIX,
+        "cats": ccats,
         "items": rows,
     }
     os.makedirs(OUT_DIR, exist_ok=True)
