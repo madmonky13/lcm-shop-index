@@ -1,11 +1,33 @@
-/* LCM 4x4 SHOP (v1): fast shop grid + filters that read the hourly product index.
+/* LCM 4x4 SHOP (v2): fast shop grid + filters that read the hourly product index.
    Put a code block containing  <div data-lcm-shop data-root="Equipment" data-filters="vehicle,brand"></div>
    on a shop page. data-root = top-level category name ("" = whole shop).
    data-filters = any of: vehicle, axle, voltage, brand (category, search and sort are always there).
+   v2 (14 Oct 2026): Land Rover / Range Rover only. The vehicle filter is Model (group) -> version -> engine,
+   from window.LCM_VEH below (also used by the By Vehicle menu and the homepage finder).
+   Product tags: "Model: <version>" (e.g. Defender 110), "Model: <group tag>" (fits every version, e.g. Defender),
+   "Engine: <engine>" only on engine-specific parts.
    If the index can't be loaded, nothing is changed and the page's normal product block stays. */
+window.LCM_VEH = {"groups":[{"n":"Series","t":["Series & Lightweight"],"v":[["Series I","1948–58"],["Series II","1958–61"],["Series IIA","1961–71"],["Series III","1971–85"],["Lightweight","1968–84"]]},{"n":"Defender","t":["Defender"],"v":[["Defender 90","1983–2016"],["Defender 110","1983–2016"],["Defender 130","1983–2016"]]},{"n":"New Defender","t":[],"v":[["Defender L663","2020 on"]]},{"n":"Discovery","t":["Discovery"],"v":[["Discovery 1","1989–98"],["Discovery 2","1998–2004"],["Discovery 3","2004–09"],["Discovery 4","2009–16"],["Discovery 5","2017 on"]]},{"n":"Discovery Sport","t":[],"v":[["Discovery Sport","2014 on"]]},{"n":"Freelander","t":["Freelander"],"v":[["Freelander 1","1997–2006"],["Freelander 2","2006–14"]]},{"n":"Range Rover","t":["Range Rover"],"v":[["Range Rover Classic","1970–96"],["Range Rover P38","1994–2002"],["Range Rover L322","2002–12"],["Range Rover L405","2012–21"],["Range Rover L460","2022 on"]]},{"n":"Range Rover Sport","t":["Range Rover Sport"],"v":[["Range Rover Sport L320","2005–13"],["Range Rover Sport L494","2013–22"],["Range Rover Sport L461","2022 on"]]},{"n":"Range Rover Evoque","t":[],"v":[["Range Rover Evoque","2011 on"]]},{"n":"Range Rover Velar","t":[],"v":[["Range Rover Velar","2017 on"]]}],"eng":{"Series I":["1.6 / 2.0 Petrol","2.0 Diesel"],"Series II":["2.25 Petrol","2.0 Diesel"],"Series IIA":["2.25 Petrol","2.25 Diesel","2.6 Petrol"],"Series III":["2.25 Petrol","2.25 Diesel","2.6 Petrol","Rover V8"],"Lightweight":["2.25 Petrol","2.25 Diesel"],"Defender 90":["2.5 Petrol","2.5 Diesel","2.5 Turbo Diesel","200Tdi","300Tdi","Td5","2.4 TDCi (Puma)","2.2 TDCi (Puma)","Rover V8"],"Defender 110":["2.25 Petrol","2.25 Diesel","2.5 Petrol","2.5 Diesel","2.5 Turbo Diesel","200Tdi","300Tdi","Td5","2.4 TDCi (Puma)","2.2 TDCi (Puma)","Rover V8"],"Defender 130":["2.5 Diesel","2.5 Turbo Diesel","200Tdi","300Tdi","Td5","2.4 TDCi (Puma)","2.2 TDCi (Puma)","Rover V8"],"Defender L663":["2.0 Ingenium","3.0 Ingenium (D250/D300)","P400e Hybrid"],"Discovery 1":["200Tdi","300Tdi","Rover V8","2.0 MPi"],"Discovery 2":["Td5","Rover V8"],"Discovery 3":["2.7 TDV6","4.4 V8","4.0 V6"],"Discovery 4":["2.7 TDV6","3.0 TDV6 / SDV6","5.0 V8"],"Discovery 5":["2.0 Ingenium","3.0 TDV6 / SDV6","3.0 Ingenium (D250/D300)"],"Discovery Sport":["2.2 Td4 / SD4","2.0 Ingenium"],"Freelander 1":["2.0 Td4","2.0 L-Series Di","1.8 K-Series","2.5 KV6"],"Freelander 2":["2.2 Td4 / SD4","3.2 i6"],"Range Rover Classic":["200Tdi","300Tdi","Rover V8","2.4 / 2.5 VM Diesel"],"Range Rover P38":["Rover V8","2.5 BMW Diesel"],"Range Rover L322":["3.0 Td6","3.6 TDV8","4.4 TDV8","4.4 V8","4.2 Supercharged V8","5.0 V8"],"Range Rover L405":["3.0 TDV6 / SDV6","4.4 SDV8","5.0 V8","3.0 Ingenium (D250/D300)"],"Range Rover L460":["3.0 Ingenium (D250/D300)","4.4 V8","P440e / P510e Hybrid"],"Range Rover Sport L320":["2.7 TDV6","3.0 TDV6 / SDV6","3.6 TDV8","4.4 V8","4.2 Supercharged V8","5.0 V8"],"Range Rover Sport L494":["3.0 TDV6 / SDV6","4.4 SDV8","5.0 V8","2.0 Ingenium","3.0 Ingenium (D250/D300)"],"Range Rover Sport L461":["3.0 Ingenium (D250/D300)","4.4 V8","P440e / P510e Hybrid"],"Range Rover Evoque":["2.2 Td4 / SD4","2.0 Ingenium"],"Range Rover Velar":["2.0 Ingenium","3.0 TDV6 / SDV6","3.0 Ingenium (D250/D300)"]}};
 (function () {
   var INDEX = 'https://madmonky13.github.io/lcm-shop-index/index.json';
   var PAGE = 24;
+  var VEH = window.LCM_VEH || { groups: [], eng: {} };
+  var V2G = {}, TAG2G = {}, GBYN = {};
+  VEH.groups.forEach(function (g) { GBYN[g.n] = g; g.v.forEach(function (v) { V2G[v[0]] = g.n; }); g.t.forEach(function (t) { TAG2G[t] = g.n; }); });
+  TAG2G['Freelander'] = 'Freelander'; TAG2G['Discovery'] = 'Discovery';
+  /* versions a product fits: version tags, plus every version of a model it is tagged for as a whole */
+  function versionsOf(md) {
+    var out = {}, named = {};
+    (md || []).forEach(function (t) { if (V2G[t]) { out[t] = 1; named[V2G[t]] = 1; } });
+    (md || []).forEach(function (t) { var g = TAG2G[t]; if (g && !named[g] && GBYN[g]) GBYN[g].v.forEach(function (v) { out[v[0]] = 1; }); });
+    return out;
+  }
+  function engOf(g, md) {   /* engines that exist for a chosen model / version */
+    var vs = md ? [md] : (GBYN[g] ? GBYN[g].v.map(function (v) { return v[0]; }) : []), out = [];
+    vs.forEach(function (v) { (VEH.eng[v] || []).forEach(function (e) { if (out.indexOf(e) < 0) out.push(e); }); });
+    return out;
+  }
+  function yearsOf(md) { var g = GBYN[V2G[md]]; if (!g) return ''; var v = g.v.filter(function (x) { return x[0] === md; })[0]; return v ? v[1] : ''; }
 
   function el(tag, cls, html) { var e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; }
   function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
@@ -19,22 +41,6 @@
     ['orange', /orange/i, '#f15f24'], ['purple', /purple|violet|lilac/i, '#6a3fa0'], ['pink', /pink|rose/i, '#e07aa5'], ['white', /white|ivory/i, '#f4f4f4'],
     ['yellow', /yellow|lime/i, '#e5c100'], ['tan', /tan|sand|desert|beige|coyote|brown/i, '#b08d5b']];
   function fam(name) { for (var i = 0; i < FAM.length; i++) if (FAM[i][1].test(name)) return FAM[i]; return [String(name).toLowerCase(), null, null]; }
-
-  function vehicles() {
-    try { var v = JSON.parse(localStorage.getItem('lcm_veh_v1') || 'null'); if (v && v.exp > Date.now()) return Promise.resolve(v.data); } catch (e) {}
-    return fetch('/shop-by-vehicle-menu').then(function (r) { return r.text(); }).then(function (h) {
-      var d = new DOMParser().parseFromString(h, 'text/html'), map = {};
-      d.querySelectorAll('a[href*="Manufacturer="]').forEach(function (a) {
-        try {
-          var u = new URL(a.getAttribute('href'), location.origin);
-          var m = (u.searchParams.get('Manufacturer') || '').replace(/^Manufacturer:\s*/, ''), md = (u.searchParams.get('Model') || '').replace(/^Model:\s*/, '');
-          if (!m) return; map[m] = map[m] || []; if (md && map[m].indexOf(md) < 0) map[m].push(md);
-        } catch (e) {}
-      });
-      try { localStorage.setItem('lcm_veh_v1', JSON.stringify({ exp: Date.now() + 864e5, data: map })); } catch (e) {}
-      return map;
-    }).catch(function () { return {}; });
-  }
 
   /* the index is stored compactly (v2): put the short category numbers, photo and link prefixes back */
   function norm(idx) {
@@ -56,11 +62,12 @@
     if (box.__lcm) return; box.__lcm = 1;
     var rootName = box.getAttribute('data-root') || '';
     var want = (box.getAttribute('data-filters') || 'vehicle,brand').split(',').map(function (s) { return s.trim(); });
+    var fixedBrand = box.getAttribute('data-brand') || '';   /* brand landing pages: grid fixed to one brand */
     box.innerHTML = '<div class="lcm-shop-loading">Loading products\u2026</div>';
     var idxReq = window.__lcmIdx || fetch(INDEX, { cache: 'default' }).then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); });
-    Promise.all([idxReq, vehicles()])
+    Promise.all([idxReq])
       .then(function (res) {
-        try { build(box, norm(res[0]), res[1], rootName, want); }
+        try { build(box, norm(res[0]), rootName, want, fixedBrand); }
         catch (e) {
           /* the list loaded but something went wrong drawing it: reload the page with the old shop */
           if (window.console) console.error('LCM shop error, falling back to the old shop', e);
@@ -76,7 +83,7 @@
       });
   }
 
-  function build(box, idx, vmap, rootName, want) {
+  function build(box, idx, rootName, want, fixedBrand) {
     /* ---- category tree ---- */
     var cats = {}, kids = {};
     idx.cats.forEach(function (c) { cats[c.id] = c; (kids[c.p || 'top'] = kids[c.p || 'top'] || []).push(c.id); });
@@ -85,12 +92,24 @@
     var root = rootName ? idx.cats.filter(function (c) { return !c.p && c.n === rootName; })[0] : null;
     var rootIds = root ? below(root.id) : null;
     var items = idx.items.filter(function (it) { return !rootIds || it.c.some(function (c) { return rootIds.indexOf(c) >= 0; }); });
-    items.forEach(function (it) { var all = {}; it.c.forEach(function (c) { for (var k = c; k; k = cats[k] && cats[k].p) all[k] = 1; }); it._cats = all; });
+    if (fixedBrand) items = items.filter(function (it) { return String(it.b || '').split(',').map(function (x) { return x.trim(); }).indexOf(fixedBrand) >= 0; });
+    items.forEach(function (it) {
+      var all = {}; it.c.forEach(function (c) { for (var k = c; k; k = cats[k] && cats[k].p) all[k] = 1; }); it._cats = all;
+      it._v = it.any ? null : versionsOf(it.md);
+    });
 
-    /* ---- state from the URL (same links as before) ---- */
+    /* ---- state from the URL. Old links (?Manufacturer=...&Model=Model: Discovery 1) still work ---- */
     var q = new URLSearchParams(location.search);
     function tagVal(k) { return (q.get(k) || '').replace(new RegExp('^' + k + ':\\s*'), ''); }
-    var st = { cat: null, mf: tagVal('Manufacturer'), md: tagVal('Model'), b: tagVal('Brand'), ax: tagVal('Axle'), vo: tagVal('Voltage'), s: q.get('q') || '', sort: q.get('sort') || 'best', shown: PAGE };
+    var st = { cat: null, g: '', md: '', en: tagVal('Engine'), b: tagVal('Brand'), ax: tagVal('Axle'), vo: tagVal('Voltage'), s: q.get('q') || '', sort: q.get('sort') || 'best', shown: PAGE };
+    (function () {
+      var m = tagVal('Model'), g = q.get('Vehicle') || '', mf = tagVal('Manufacturer');
+      if (m && V2G[m]) { st.md = m; st.g = V2G[m]; }
+      else if (m && TAG2G[m]) st.g = TAG2G[m];
+      else if (g && GBYN[g]) st.g = g;
+      else if (!m && mf === 'Range Rover') st.g = 'Range Rover';
+      if (st.en && st.g && engOf(st.g, st.md).indexOf(st.en) < 0) st.en = '';
+    })();
     if (q.get('category')) {
       var parts = q.get('category').split(','), found = null;
       idx.cats.forEach(function (c) { if (path(c.id).join(',') === parts.join(',')) found = c.id; });
@@ -100,10 +119,11 @@
 
     function match(it, skip) {
       if (skip !== 'cat' && st.cat && !it._cats[st.cat]) return false;
-      if (skip !== 'veh' && st.mf && !it.any) {
-        if ((it.mf || []).indexOf(st.mf) < 0) return false;
-        if (st.md && (it.md || []).indexOf(st.md) < 0) return false;
+      if (skip !== 'veh' && st.g && !it.any) {
+        if (st.md) { if (!it._v[st.md]) return false; }
+        else if (!GBYN[st.g].v.some(function (v) { return it._v[v[0]]; })) return false;
       }
+      if (skip !== 'veh' && skip !== 'en' && st.en && !engineOk(it)) return false;
       if (skip !== 'b' && st.b && (it.b || []).indexOf(st.b) < 0) return false;
       if (skip !== 'ax' && st.ax && (it.ax || []).indexOf(st.ax) < 0) return false;
       if (skip !== 'vo' && st.vo && (it.vo || []).indexOf(st.vo) < 0) return false;
@@ -113,6 +133,14 @@
       }
       return true;
     }
+    /* engine: parts not tagged with an engine of this vehicle fit whatever engine it has */
+    function engineOk(it) {
+      if (!st.g) return !!(it.en && it.en.indexOf(st.en) >= 0);          /* engine on its own: only parts made for it */
+      if (it.any || !it.en || !it.en.length) return true;
+      var here = engOf(st.g, st.md), rel = it.en.filter(function (e) { return here.indexOf(e) >= 0; });
+      return !rel.length || rel.indexOf(st.en) >= 0;
+    }
+    function exact(it) { return st.en && it.en && it.en.indexOf(st.en) >= 0 ? 0 : 1; }
     function sorted(list) {
       var a = list.slice();
       if (st.sort === 'new') a.sort(function (x, y) { return (y.a || 0) - (x.a || 0); });
@@ -120,7 +148,7 @@
       else if (st.sort === 'high') a.sort(function (x, y) { return (y.p || 0) - (x.p || 0); });
       else if (st.sort === 'az') a.sort(function (x, y) { return byName(x.t, y.t); });
       else if (st.sort === 'za') a.sort(function (x, y) { return byName(y.t, x.t); });
-      else a.sort(function (x, y) { return ((st.mf ? (x.any ? 1 : 0) - (y.any ? 1 : 0) : 0)) || ((y.s - x.s)) || (x.o - y.o); });
+      else a.sort(function (x, y) { return ((st.g ? (x.any ? 1 : 0) - (y.any ? 1 : 0) : 0)) || (exact(x) - exact(y)) || ((y.s - x.s)) || (x.o - y.o); });
       return a;
     }
 
@@ -135,7 +163,8 @@
     box.appendChild(toggle); box.appendChild(side); box.appendChild(main);
 
     /* ---- filter panel, built to look like the old Universal Filter drop-downs ---- */
-    var open = { cat: true }, openCat = {};
+    var open = { cat: true }, openCat = {}, openVeh = {};
+    if (st.g && !st.md) open.veh = true;
     function dd(key, name, valueText, active, buildList, onReset) {
       var b = el('div', 'lcm-f-block lcm-f-dd' + (open[key] ? ' open' : '') + (active ? ' active' : ''));
       var lab = el('button', 'lcm-f-label'); lab.type = 'button';
@@ -194,19 +223,32 @@
         }
         sub(root ? root.id : 'top').forEach(function (k) { addCat(k, 1); });
       }, function () { st.cat = null; change(); }));
-      /* vehicle: manufacturer + model */
+      /* vehicle: Land Rover / Range Rover model, then version (with years), then engine */
       if (want.indexOf('vehicle') >= 0) {
-        var mc = counts('veh', function (it) { return it.mf; });
-        var makes = uniq(Object.keys(vmap).concat(Object.keys(mc))).sort(byName);   /* universal kit fits every make, so list them all */
-        wrap.appendChild(dd('mf', 'Manufacturer', st.mf, !!st.mf, function (ul) {
-          makes.forEach(function (m) { opt(ul, m, st.mf === m, 1, function () { st.mf = st.mf === m ? '' : m; st.md = ''; open.mf = false; if (st.mf) open.md = true; change(); }); });
-        }, function () { st.mf = ''; st.md = ''; change(); }));
-        var mdc = counts('veh', function (it) { return st.mf && (it.mf || []).indexOf(st.mf) < 0 ? [] : it.md; });
-        var allModels = [].concat.apply([], Object.keys(vmap).map(function (k) { return vmap[k]; }));
-        var models = uniq((st.mf ? (vmap[st.mf] || []) : allModels).concat(Object.keys(mdc))).sort(byName);
-        wrap.appendChild(dd('md', 'Model', st.md, !!st.md, function (ul) {
-          models.forEach(function (m) { opt(ul, m, st.md === m, 1, function () { st.md = st.md === m ? '' : m; open.md = false; change(); }); });
-        }, function () { st.md = ''; change(); }));
+        var vlabel = st.md || st.g;
+        wrap.appendChild(dd('veh', 'Vehicle', vlabel, !!st.g, function (ul) {
+          VEH.groups.forEach(function (g) {
+            var single = g.v.length === 1, isOpen = single ? false : (g.n in openVeh ? openVeh[g.n] : st.g === g.n);
+            var li = opt(ul, g.n, st.g === g.n && (!st.md || single), 1, function () {
+              if (st.g === g.n && !st.md) { st.g = ''; } else { st.g = g.n; st.md = single ? g.v[0][0] : ''; }
+              st.en = ''; delete openVeh[g.n]; if (st.g && !single) openVeh[g.n] = true; change();
+            });
+            if (single) { li.firstChild.insertAdjacentHTML('beforeend', ' <small>' + esc(g.v[0][1]) + '</small>'); return; }
+            var tg = el('span', 'lcm-f-tog', isOpen ? '−' : '+'); tg.title = isOpen ? 'Hide' : 'Show versions';
+            tg.onclick = function (e) { e.preventDefault(); openVeh[g.n] = !isOpen; drawSide(); };
+            li.appendChild(tg);
+            if (isOpen) g.v.forEach(function (v) {
+              var l2 = opt(ul, v[0], st.md === v[0], 2, function () { if (st.md === v[0]) st.md = ''; else { st.g = g.n; st.md = v[0]; } st.en = ''; open.veh = false; if (st.md && engOf(st.g, st.md).length) open.en = true; change(); });
+              l2.firstChild.insertAdjacentHTML('beforeend', ' <small>' + esc(v[1]) + '</small>');
+            });
+          });
+        }, function () { st.g = ''; st.md = ''; st.en = ''; change(); }));
+        /* engine: only engines with at least one engine-specific part for this vehicle (or all, with no vehicle chosen) */
+        var ec = counts('en', function (it) { return it.en; });
+        var engs = (st.g ? engOf(st.g, st.md) : Object.keys(ec).sort(byName)).filter(function (e) { return ec[e] || e === st.en; });
+        if (engs.length) wrap.appendChild(dd('en', 'Engine', st.en, !!st.en, function (ul) {
+          engs.forEach(function (e) { opt(ul, e, st.en === e, 1, function () { st.en = st.en === e ? '' : e; open.en = false; change(); }); });
+        }, function () { st.en = ''; change(); }));
       }
       /* axle / voltage as buttons (same as before) */
       [['axle', 'ax', 'Axle'], ['voltage', 'vo', 'Voltage']].forEach(function (f) {
@@ -276,7 +318,7 @@
       var altImg = alt && alt !== show ? '<img class="lcm-card-alt" alt="" aria-hidden="true" data-src="' + esc(alt) + '?format=500w">' : '';
       var badge = !it.s ? '<span class="lcm-card-badge out">Out of stock</span>' : it.sale ? '<span class="lcm-card-badge sale">Sale</span>' : '';
       var price = it.p != null ? '<div class="lcm-card-p">' + (it.f ? '<small>from</small> ' : '') + '<b>' + gbp(it.p) + '</b>' + (it.w ? ' <s>' + gbp(it.w) + '</s>' : '') + '</div>' : '';
-      var tags = (it.b && it.b[0] ? '<span class="lcm-card-brand">' + esc(it.b[0]) + '</span>' : '') + dots + (it.any && st.mf ? '<span class="lcm-card-any">Fits any vehicle</span>' : '');
+      var tags = (it.b && it.b[0] ? '<span class="lcm-card-brand">' + esc(it.b[0]) + '</span>' : '') + dots + (it.any && (st.g || st.en) ? '<span class="lcm-card-any">Fits any vehicle</span>' : '');
       a.innerHTML = '<div class="lcm-card-img">' + img + altImg + badge + '</div><div class="lcm-card-body"><div class="lcm-card-tags">' + tags + '</div><div class="lcm-card-t">' + esc(it.t) + '</div>' + price + '</div>';
       return a;
     }
@@ -309,9 +351,9 @@
       if (reset) { grid.innerHTML = ''; grid._n = 0; used = {}; recent = []; }
       var upto = Math.min(st.shown, list.length), frag = document.createDocumentFragment();
       var firstAny = -1;
-      if (st.mf && st.sort === 'best') for (var i = 0; i < list.length; i++) if (list[i].any) { firstAny = i; break; }
+      if (st.g && st.sort === 'best') for (var i = 0; i < list.length; i++) if (list[i].any) { firstAny = i; break; }
       for (var n = grid._n || 0; n < upto; n++) {
-        if (n === firstAny && firstAny > 0) frag.appendChild(el('div', 'lcm-shop-divider', 'Also fits your ' + esc(st.md || st.mf) + ' \u2014 kit that fits any vehicle'));
+        if (n === firstAny && firstAny > 0) frag.appendChild(el('div', 'lcm-shop-divider', 'Also fits your ' + esc(st.md || st.g) + ' \u2014 kit that fits any vehicle'));
         frag.appendChild(card(list[n]));
       }
       grid.appendChild(frag); grid._n = upto;
@@ -322,23 +364,25 @@
         more.appendChild(b);
       }
       if (!list.length) grid.innerHTML = '<div class="lcm-shop-none">No products match these filters. <a href="#" data-clear>Clear filters</a> or <a href="/contact">ask us</a> \u2014 we can often get parts that aren\u2019t listed.</div>';
-      var c = grid.querySelector('[data-clear]'); if (c) c.onclick = function (e) { e.preventDefault(); st.cat = null; st.mf = st.md = st.b = st.ax = st.vo = st.s = ''; change(); };
+      var c = grid.querySelector('[data-clear]'); if (c) c.onclick = function (e) { e.preventDefault(); st.cat = null; st.g = st.md = st.en = st.b = st.ax = st.vo = st.s = ''; change(); };
     }
     function drawBar() {
       var chips = [];
       if (st.cat) chips.push(['cat', cats[st.cat].n]);
-      if (st.mf) chips.push(['mf', st.md ? st.mf + ' ' + st.md : st.mf]);
+      if (st.g) chips.push(['veh', st.md || st.g]);
+      if (st.en) chips.push(['en', st.en]);
       ['b', 'ax', 'vo'].forEach(function (k) { if (st[k]) chips.push([k, st[k]]); });
       if (st.s) chips.push(['s', '\u201c' + st.s + '\u201d']);
       bar.innerHTML = '<span class="lcm-shop-count">' + list.length + ' product' + (list.length === 1 ? '' : 's') + '</span>' +
         chips.map(function (c) { return '<button type="button" data-k="' + c[0] + '">' + esc(c[1]) + ' \u2715</button>'; }).join('');
-      bar.querySelectorAll('button').forEach(function (b) { b.onclick = function () { var k = b.getAttribute('data-k'); if (k === 'cat') st.cat = null; else if (k === 'mf') { st.mf = ''; st.md = ''; } else st[k] = ''; change(); }; });
+      bar.querySelectorAll('button').forEach(function (b) { b.onclick = function () { var k = b.getAttribute('data-k'); if (k === 'cat') st.cat = null; else if (k === 'veh') { st.g = ''; st.md = ''; st.en = ''; } else st[k] = ''; change(); }; });
     }
     function writeUrl() {
       var p = new URLSearchParams();
       if (st.cat) p.set('category', path(st.cat).join(','));
-      if (st.mf) p.set('Manufacturer', 'Manufacturer: ' + st.mf);
       if (st.md) p.set('Model', 'Model: ' + st.md);
+      else if (st.g) p.set('Vehicle', st.g);
+      if (st.en) p.set('Engine', 'Engine: ' + st.en);
       if (st.b) p.set('Brand', 'Brand: ' + st.b);
       if (st.ax) p.set('Axle', 'Axle: ' + st.ax);
       if (st.vo) p.set('Voltage', 'Voltage: ' + st.vo);
