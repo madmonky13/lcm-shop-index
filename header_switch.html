@@ -13,7 +13,7 @@
   idx.catch(function () {});
   window.fetch = function (u, o) {
     var s = typeof u === 'string' ? u : (u && u.url) || '';
-    if (/format=json/.test(s) && /view=list/.test(s)) return idx.then(function () { return new Response('{"items":[],"pagination":{}}', { headers: { 'Content-Type': 'application/json' } }); }, function () { return f(u, o); });
+    if (/format=json/.test(s) && (/view=list/.test(s) || /[?&]cache=/.test(s))) return idx.then(function () { return new Response('{"items":[],"pagination":{}}', { headers: { 'Content-Type': 'application/json' } }); }, function () { return f(u, o); });
     return f(u, o);
   };
 })();
