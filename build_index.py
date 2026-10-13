@@ -119,8 +119,31 @@ def item_row(it, order):
             continue
         seen_img.add(img)
         cv.append([name, img, ok])
+    # a colour with no photo linked is usually the main colour: give it the first gallery photo no other colour uses
+    if cv:
+        names_with = {c[0] for c in cv}
+        missing = []
+        for v in vs:
+            attrs = v.get("attributes") or {}
+            name = next((str(val) for key, val in attrs.items() if "colo" in key.lower()), None)
+            if name and name not in names_with and name not in [m[0] for m in missing]:
+                ok = 1 if (v.get("unlimited") or (v.get("qtyInStock") or 0) > 0) else 0
+                missing.append([name, ok])
+        free = [g for g in gallery if g not in seen_img]
+        if len(missing) == 1 and free:
+            cv.insert(0, [missing[0][0], free[0], missing[0][1]])
     if len(cv) > 1:
         row["cv"] = cv
+    else:
+        # colours without their own photos still get the colour dots on the card
+        names = []
+        for v in vs:
+            attrs = v.get("attributes") or {}
+            name = next((str(val) for key, val in attrs.items() if "colo" in key.lower()), None)
+            if name and name not in names:
+                names.append(name)
+        if len(names) > 1:
+            row["cn"] = names
     return row
 
 

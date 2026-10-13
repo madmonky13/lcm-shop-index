@@ -260,9 +260,12 @@
         var c = pickColour(it); show = c[1]; label = it.t + ' \u2013 ' + c[0];
         var other = it.cv.filter(function (x) { return x !== c && fam(x[0])[0] !== fam(c[0])[0]; })[0] || it.cv.filter(function (x) { return x !== c; })[0];
         alt = other ? other[1] : it.i2;
-        var fams = [], names = [];
-        it.cv.forEach(function (x) { var f = fam(x[0]); if (f[2] && fams.indexOf(f[2]) < 0) { fams.push(f[2]); names.push(x[0]); } });
-        if (fams.length > 1) dots = '<span class="lcm-card-sw" title="' + esc(it.cv.map(function (x) { return x[0]; }).join(', ')) + '">' +
+      }
+      var cnames = it.cv ? it.cv.map(function (x) { return x[0]; }) : (it.cn || []);
+      if (cnames.length > 1) {
+        var fams = [];
+        cnames.forEach(function (x) { var f = fam(x); if (f[2] && fams.indexOf(f[2]) < 0) fams.push(f[2]); });
+        if (fams.length > 1) dots = '<span class="lcm-card-sw" title="' + esc(cnames.join(', ')) + '">' +
           fams.slice(0, 6).map(function (h) { return '<i style="background:' + h + '"></i>'; }).join('') + (fams.length > 6 ? '<em>+' + (fams.length - 6) + '</em>' : '') + '</span>';
       }
       var img = show ? '<img loading="lazy" decoding="async" src="' + esc(show) + '?format=500w" alt="' + esc(label) + '">' : '';
