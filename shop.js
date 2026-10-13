@@ -148,7 +148,15 @@ window.LCM_VEH = {"groups":[{"n":"Series","t":["Series & Lightweight"],"v":[["Se
       else if (st.sort === 'high') a.sort(function (x, y) { return (y.p || 0) - (x.p || 0); });
       else if (st.sort === 'az') a.sort(function (x, y) { return byName(x.t, y.t); });
       else if (st.sort === 'za') a.sort(function (x, y) { return byName(y.t, x.t); });
-      else a.sort(function (x, y) { return ((st.g ? (x.any ? 1 : 0) - (y.any ? 1 : 0) : 0)) || (exact(x) - exact(y)) || ((y.s - x.s)) || (x.o - y.o); });
+      else {
+        var seg = function (x) { return ((st.g && x.any) ? 4 : 0) + exact(x) * 2 + (x.s ? 0 : 1); };
+        a.sort(function (x, y) { return (seg(x) - seg(y)) || (x.o - y.o); });
+        /* mix the brands in each group (store order kept within a brand), so a big new range
+           doesn't fill the first screens on its own */
+        var rank = {}, pos = new Map();
+        a.forEach(function (x, i) { var k = seg(x) + '|' + ((x.b && x.b[0]) || ''); rank[k] = (rank[k] || 0) + 1; pos.set(x, [rank[k], i]); });
+        a.sort(function (x, y) { var px = pos.get(x), py = pos.get(y); return (seg(x) - seg(y)) || (px[0] - py[0]) || (px[1] - py[1]); });
+      }
       return a;
     }
 
