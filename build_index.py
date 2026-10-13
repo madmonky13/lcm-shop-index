@@ -100,6 +100,27 @@ def item_row(it, order):
         row[keys[k]] = v
     if len(gallery) > 1:
         row["i2"] = gallery[1]                        # second photo (hover)
+    # colour options with their own photo, so the grid can show a mix of colours
+    by_id = {x.get("id"): x.get("assetUrl") for x in (it.get("items") or [])}
+    cv, seen_img = [], set()
+    for v in vs:
+        attrs = v.get("attributes") or {}
+        name = next((str(val) for key, val in attrs.items() if "colo" in key.lower()), None)
+        mi = v.get("mainImage") or {}
+        img = mi.get("assetUrl") if isinstance(mi, dict) else None
+        img = img or by_id.get(v.get("mainImageId"))
+        if not name or not img:
+            continue
+        ok = 1 if (v.get("unlimited") or (v.get("qtyInStock") or 0) > 0) else 0
+        if img in seen_img:                            # same colour in another size: keep, mark in stock if any is
+            for c in cv:
+                if c[1] == img and ok:
+                    c[2] = 1
+            continue
+        seen_img.add(img)
+        cv.append([name, img, ok])
+    if len(cv) > 1:
+        row["cv"] = cv
     return row
 
 
@@ -153,6 +174,9 @@ def main():
         for k in ("i", "i2"):
             if r.get(k, "").startswith(IMG_PREFIX):
                 r[k] = r[k][len(IMG_PREFIX):]
+        for c in r.get("cv", []):
+            if c[1].startswith(IMG_PREFIX):
+                c[1] = c[1][len(IMG_PREFIX):]
         if (r.get("u") or "").startswith("/store/p/"):
             r["u"] = r["u"][len("/store/p/"):]
         if r.get("a"):
@@ -174,6 +198,7 @@ def main():
         "in_stock": sum(r["s"] for r in rows),
         "on_sale": sum(1 for r in rows if r.get("sale")),
         "fits_any_vehicle": sum(1 for r in rows if r.get("any")),
+        "with_colour_photos": sum(1 for r in rows if r.get("cv")),
         "categories": len(cats),
         "products_with_unknown_category": orphans,
         "bytes": os.path.getsize(os.path.join(OUT_DIR, "index.json")),

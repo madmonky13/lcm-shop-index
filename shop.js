@@ -13,6 +13,13 @@
   function uniq(a) { return a.filter(function (x, i) { return x && a.indexOf(x) === i; }); }
   function byName(a, b) { return a.localeCompare(b, 'en', { numeric: true }); }
 
+  /* colour names -> a family (to spread colours across the grid) and a dot colour */
+  var FAM = [['red', /red|crimson|burgundy/i, '#c8102e'], ['black', /black|ebony|onyx/i, '#111'], ['grey', /grey|gray|silver|titanium|gunmetal|graphite|alloy|raw|natural|polished|stainless/i, '#9a9a9a'],
+    ['gold', /gold|bronze|brass|copper|champagne/i, '#c9a227'], ['blue', /blue|navy|teal|cyan/i, '#1f5fbf'], ['green', /green|olive|khaki|od\b/i, '#4f6b2f'],
+    ['orange', /orange/i, '#f15f24'], ['purple', /purple|violet|lilac/i, '#6a3fa0'], ['pink', /pink|rose/i, '#e07aa5'], ['white', /white|ivory/i, '#f4f4f4'],
+    ['yellow', /yellow|lime/i, '#e5c100'], ['tan', /tan|sand|desert|beige|coyote|brown/i, '#b08d5b']];
+  function fam(name) { for (var i = 0; i < FAM.length; i++) if (FAM[i][1].test(name)) return FAM[i]; return [String(name).toLowerCase(), null, null]; }
+
   function vehicles() {
     try { var v = JSON.parse(localStorage.getItem('lcm_veh_v1') || 'null'); if (v && v.exp > Date.now()) return Promise.resolve(v.data); } catch (e) {}
     return fetch('/shop-by-vehicle-menu').then(function (r) { return r.text(); }).then(function (h) {
@@ -39,6 +46,7 @@
       if (it.i && !/^https?:/.test(it.i)) it.i = img + it.i;
       if (it.i2 && !/^https?:/.test(it.i2)) it.i2 = img + it.i2;
       if (it.u && it.u.charAt(0) !== '/') it.u = '/store/p/' + it.u;
+      (it.cv || []).forEach(function (c) { if (c[1] && !/^https?:/.test(c[1])) c[1] = img + c[1]; });
     });
     idx._n = 1;
     return idx;
@@ -231,17 +239,49 @@
     }
 
     var list = [];
+    /* pick which colour photo each card shows, so neighbouring cards aren't all the same colour */
+    var used = {}, recent = [];
+    function pickColour(it) {
+      var cv = it.cv, pool = cv.filter(function (c) { return c[2]; });
+      if (!pool.length) pool = cv;
+      var best = null, bestScore = 1e9;
+      pool.forEach(function (c, n) {
+        var f = fam(c[0])[0], score = (used[f] || 0) * 10 + n;
+        if (recent.indexOf(f) >= 0) score += 1000;            /* never the same colour as the last few cards if avoidable */
+        if (score < bestScore) { bestScore = score; best = c; }
+      });
+      var f = fam(best[0])[0]; used[f] = (used[f] || 0) + 1; recent.push(f); if (recent.length > 3) recent.shift();
+      return best;
+    }
     function card(it) {
       var a = el('a', 'lcm-card' + (it.s ? '' : ' out')); a.href = it.u;
-      var img = it.i ? '<img loading="lazy" decoding="async" src="' + esc(it.i) + '?format=500w" alt="' + esc(it.t) + '">' : '';
+      var show = it.i, alt = it.i2, label = it.t, dots = '';
+      if (it.cv) {
+        var c = pickColour(it); show = c[1]; label = it.t + ' \u2013 ' + c[0];
+        var other = it.cv.filter(function (x) { return x !== c && fam(x[0])[0] !== fam(c[0])[0]; })[0] || it.cv.filter(function (x) { return x !== c; })[0];
+        alt = other ? other[1] : it.i2;
+        var fams = [], names = [];
+        it.cv.forEach(function (x) { var f = fam(x[0]); if (f[2] && fams.indexOf(f[2]) < 0) { fams.push(f[2]); names.push(x[0]); } });
+        if (fams.length > 1) dots = '<span class="lcm-card-sw" title="' + esc(it.cv.map(function (x) { return x[0]; }).join(', ')) + '">' +
+          fams.slice(0, 6).map(function (h) { return '<i style="background:' + h + '"></i>'; }).join('') + (fams.length > 6 ? '<em>+' + (fams.length - 6) + '</em>' : '') + '</span>';
+      }
+      var img = show ? '<img loading="lazy" decoding="async" src="' + esc(show) + '?format=500w" alt="' + esc(label) + '">' : '';
+      var altImg = alt && alt !== show ? '<img class="lcm-card-alt" alt="" aria-hidden="true" data-src="' + esc(alt) + '?format=500w">' : '';
       var badge = !it.s ? '<span class="lcm-card-badge out">Out of stock</span>' : it.sale ? '<span class="lcm-card-badge sale">Sale</span>' : '';
       var price = it.p != null ? '<div class="lcm-card-p">' + (it.f ? '<small>from</small> ' : '') + '<b>' + gbp(it.p) + '</b>' + (it.w ? ' <s>' + gbp(it.w) + '</s>' : '') + '</div>' : '';
-      var tags = (it.b && it.b[0] ? '<span class="lcm-card-brand">' + esc(it.b[0]) + '</span>' : '') + (it.any && st.mf ? '<span class="lcm-card-any">Fits any vehicle</span>' : '');
-      a.innerHTML = '<div class="lcm-card-img">' + img + badge + '</div><div class="lcm-card-body"><div class="lcm-card-tags">' + tags + '</div><div class="lcm-card-t">' + esc(it.t) + '</div>' + price + '</div>';
+      var tags = (it.b && it.b[0] ? '<span class="lcm-card-brand">' + esc(it.b[0]) + '</span>' : '') + dots + (it.any && st.mf ? '<span class="lcm-card-any">Fits any vehicle</span>' : '');
+      a.innerHTML = '<div class="lcm-card-img">' + img + altImg + badge + '</div><div class="lcm-card-body"><div class="lcm-card-tags">' + tags + '</div><div class="lcm-card-t">' + esc(it.t) + '</div>' + price + '</div>';
       return a;
     }
+    /* hover photo: only fetched when the mouse first goes over a card */
+    grid.addEventListener('mouseover', function (e) {
+      var im = e.target.closest && e.target.closest('.lcm-card'); im = im && im.querySelector('.lcm-card-alt[data-src]');
+      if (!im || !(window.matchMedia && matchMedia('(hover: hover)').matches)) return;
+      im.onload = function () { im.classList.add('ok'); };
+      im.src = im.getAttribute('data-src'); im.removeAttribute('data-src');
+    });
     function drawGrid(reset) {
-      if (reset) { grid.innerHTML = ''; grid._n = 0; }
+      if (reset) { grid.innerHTML = ''; grid._n = 0; used = {}; recent = []; }
       var upto = Math.min(st.shown, list.length), frag = document.createDocumentFragment();
       var firstAny = -1;
       if (st.mf && st.sort === 'best') for (var i = 0; i < list.length; i++) if (list[i].any) { firstAny = i; break; }
