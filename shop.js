@@ -292,12 +292,20 @@
     }
     /* the orange category buttons in the page band: switch category in place, and keep their highlight in step */
     function here(u) { return u.pathname.replace(/\/$/, '') === location.pathname.replace(/\/$/, ''); }
+    var catCount = {}, byPath = {};
+    items.forEach(function (it) { Object.keys(it._cats).forEach(function (k) { catCount[k] = (catCount[k] || 0) + 1; }); });
+    idx.cats.forEach(function (c) { byPath[path(c.id).join(',').toLowerCase()] = c.id; });
     function syncChips() {
       var cur = st.cat ? path(st.cat).join(',').toLowerCase() : '';
       document.querySelectorAll('.lcm-chips a').forEach(function (a) {
         var u; try { u = new URL(a.getAttribute('href'), location.origin); } catch (e) { return; }
+        /* the numbers on the buttons come from the same product list as the grid, so they always agree */
+        var target = (u.searchParams.get('category') || '').toLowerCase(), n = a.querySelector('.n');
+        var top = { '/shop/accessories': 'accessories', '/shop/body': 'body', '/shop/chassis': 'chassis', '/shop/axles-suspension': 'axles & suspension', '/shop/brake-clutch': 'brakes & clutches', '/shop/electrical': 'electrical', '/shop/equipment': 'equipment' }[u.pathname.replace(/\/$/, '')];
+        var num = target ? catCount[byPath[target]] : here(u) ? items.length : top ? catCount[byPath[top]] : null;
+        if (n && num != null) n.textContent = num;
         if (!here(u)) return;
-        var v = (u.searchParams.get('category') || '').toLowerCase();
+        var v = target;
         a.classList.toggle('on', v ? (cur === v || cur.indexOf(v + ',') === 0) : (!cur || (root && cur === root.n.toLowerCase())));
       });
     }
@@ -312,6 +320,10 @@
       if (st.cat && root && st.cat === root.id) st.cat = null;
       change();
     }, true);
+    if ('MutationObserver' in window) {
+      var chipWatch = new MutationObserver(function () { if (document.querySelector('.lcm-chips a')) { chipWatch.disconnect(); syncChips(); } });
+      if (document.querySelector('.lcm-chips a')) setTimeout(syncChips, 0); else { chipWatch.observe(document.body, { childList: true, subtree: true }); setTimeout(function () { chipWatch.disconnect(); }, 15000); }
+    }
     /* load the next batch well before the bottom is reached */
     if ('IntersectionObserver' in window) {
       new IntersectionObserver(function (es) { if (es[0].isIntersecting && grid._n < list.length) { st.shown += PAGE; drawGrid(); } }, { rootMargin: '1200px 0px' }).observe(more);
