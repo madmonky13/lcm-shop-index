@@ -1,0 +1,21 @@
+<!-- LCM 4x4 NEW SHOP SWITCH: on the 8 shop pages the product list starts downloading straight away, and the old filter plugin is given an empty list (if the list fails to load within 8 seconds, the old plugin gets its real data instead, as a safety net). ?lcmshop=0 shows the old shop. -->
+<script>
+(function () {
+  var m = location.pathname.match(/^\/shop(?:\/([^\/]*))?\/?$/);
+  var pages = { '': 1, accessories: 1, body: 1, chassis: 1, 'axles-suspension': 1, 'brake-clutch': 1, electrical: 1, equipment: 1 };
+  if (!m || !pages[m[1] || ''] || /[?&]lcmshop=0/.test(location.search) || !window.fetch || !window.Promise) return;
+  document.documentElement.classList.add('lcm-newshop-on');
+  var f = window.fetch.bind(window);
+  var idx = window.__lcmIdx = Promise.race([
+    f('https://madmonky13.github.io/lcm-shop-index/index.json').then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); }),
+    new Promise(function (ok, no) { setTimeout(function () { no(new Error('timeout')); }, 8000); })
+  ]);
+  idx.catch(function () {});
+  window.fetch = function (u, o) {
+    var s = typeof u === 'string' ? u : (u && u.url) || '';
+    if (/format=json/.test(s) && /view=list/.test(s)) return idx.then(function () { return new Response('{"items":[],"pagination":{}}', { headers: { 'Content-Type': 'application/json' } }); }, function () { return f(u, o); });
+    return f(u, o);
+  };
+})();
+</script>
+<!-- END: LCM 4x4 NEW SHOP SWITCH -->

@@ -51,8 +51,21 @@
     box.innerHTML = '<div class="lcm-shop-loading">Loading products\u2026</div>';
     var idxReq = window.__lcmIdx || fetch(INDEX, { cache: 'default' }).then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); });
     Promise.all([idxReq, vehicles()])
-      .then(function (res) { build(box, norm(res[0]), res[1], rootName, want); })
-      .catch(function (e) { box.innerHTML = ''; box.style.display = 'none'; if (window.console) console.warn('LCM shop index not available, keeping the normal product block', e); });
+      .then(function (res) {
+        try { build(box, norm(res[0]), res[1], rootName, want); }
+        catch (e) {
+          /* the list loaded but something went wrong drawing it: reload the page with the old shop */
+          if (window.console) console.error('LCM shop error, falling back to the old shop', e);
+          if (!/[?&]lcmshop=0/.test(location.search)) location.replace(location.pathname + (location.search ? location.search + '&' : '?') + 'lcmshop=0');
+        }
+      })
+      .catch(function (e) {
+        /* safety net: if the product list can't be loaded, put the page's normal product block back */
+        box.innerHTML = ''; box.style.display = 'none';
+        document.documentElement.classList.remove('lcm-newshop-on');
+        document.querySelectorAll('.lcm-shop-replaced').forEach(function (x) { x.classList.remove('lcm-shop-replaced'); });
+        if (window.console) console.warn('LCM shop index not available, showing the normal product block', e);
+      });
   }
 
   function build(box, idx, vmap, rootName, want) {
@@ -74,6 +87,7 @@
       var parts = q.get('category').split(','), found = null;
       idx.cats.forEach(function (c) { if (path(c.id).join(',') === parts.join(',')) found = c.id; });
       st.cat = found;
+      if (root && st.cat === root.id) st.cat = null;
     }
 
     function match(it, skip) {
@@ -113,7 +127,7 @@
     box.appendChild(toggle); box.appendChild(side); box.appendChild(main);
 
     /* ---- filter panel, built to look like the old Universal Filter drop-downs ---- */
-    var open = { cat: true };
+    var open = { cat: true }, openCat = {};
     function dd(key, name, valueText, active, buildList, onReset) {
       var b = el('div', 'lcm-f-block lcm-f-dd' + (open[key] ? ' open' : '') + (active ? ' active' : ''));
       var lab = el('button', 'lcm-f-label'); lab.type = 'button';
@@ -131,6 +145,7 @@
       var li = el('li', 'lcm-f-opt d' + depth), a = el('a', on ? 'on' : '', esc(text)); a.href = '#';
       a.onclick = function (e) { e.preventDefault(); onclick(); };
       li.appendChild(a); ul.appendChild(li);
+      return li;
     }
     function buttons(title, opts, val, onclick) {
       var w = el('div', 'lcm-f-block lcm-has-fbtns'), box = el('div', 'lcm-fbtns');
@@ -152,15 +167,24 @@
       var wrap = el('div', 'lcm-f-wrap'); side.appendChild(wrap);
       /* category */
       var cc = counts('cat', function (it) { return Object.keys(it._cats); });
-      wrap.appendChild(dd('cat', 'Category', st.cat ? path(st.cat).join(', ') : '', !!st.cat, function (ul) {
+      wrap.appendChild(dd('cat', 'Category', st.cat ? cats[st.cat].n : '', !!st.cat, function (ul) {
+        function onPath(id) { for (var k = st.cat; k; k = cats[k] && cats[k].p) if (k === id) return true; return false; }
+        function sub(id) { return (kids[id] || []).filter(function (k) { return cc[k]; }).sort(function (x, y) { return byName(cats[x].n, cats[y].n); }); }
         function addCat(id, depth) {
-          if (!cc[id]) return;
-          var on = !!(st.cat && (st.cat === id || (function () { for (var k = cats[st.cat] && cats[st.cat].p; k; k = cats[k].p) if (k === id) return true; return false; })()));
-          opt(ul, cats[id].n, on, depth, function () { st.cat = st.cat === id ? (cats[id].p && cats[id].p !== (root && root.id) ? cats[id].p : null) : id; change(); });
-          (kids[id] || []).slice().sort(function (x, y) { return byName(cats[x].n, cats[y].n); }).forEach(function (k) { addCat(k, depth + 1); });
+          var ks = sub(id), isOpen = ks.length > 0 && (id in openCat ? openCat[id] : onPath(id));
+          var li = opt(ul, cats[id].n, onPath(id), depth, function () {
+            if (st.cat === id) st.cat = cats[id].p && cats[id].p !== (root && root.id) ? cats[id].p : null;
+            else { st.cat = id; delete openCat[id]; }
+            change();
+          });
+          if (ks.length) {
+            var tg = el('span', 'lcm-f-tog', isOpen ? '\u2212' : '+'); tg.title = isOpen ? 'Hide' : 'Show more';
+            tg.onclick = function (e) { e.preventDefault(); openCat[id] = !isOpen; drawSide(); };
+            li.appendChild(tg);
+            if (isOpen) ks.forEach(function (k) { addCat(k, depth + 1); });
+          }
         }
-        if (root) { opt(ul, root.n, !st.cat, 1, function () { st.cat = null; change(); }); (kids[root.id] || []).slice().sort(function (x, y) { return byName(cats[x].n, cats[y].n); }).forEach(function (k) { addCat(k, 2); }); }
-        else (kids.top || []).slice().sort(function (x, y) { return byName(cats[x].n, cats[y].n); }).forEach(function (k) { addCat(k, 1); });
+        sub(root ? root.id : 'top').forEach(function (k) { addCat(k, 1); });
       }, function () { st.cat = null; change(); }));
       /* vehicle: manufacturer + model */
       if (want.indexOf('vehicle') >= 0) {
@@ -263,9 +287,31 @@
       st.shown = PAGE;
       list = sorted(items.filter(function (it) { return match(it); }));
       if (!keepSide) drawSide();
-      drawBar(); drawGrid(true); writeUrl();
+      drawBar(); drawGrid(true); writeUrl(); syncChips();
       try { document.dispatchEvent(new CustomEvent('lcm-shop-change', { detail: st })); } catch (e) {}
     }
+    /* the orange category buttons in the page band: switch category in place, and keep their highlight in step */
+    function here(u) { return u.pathname.replace(/\/$/, '') === location.pathname.replace(/\/$/, ''); }
+    function syncChips() {
+      var cur = st.cat ? path(st.cat).join(',').toLowerCase() : '';
+      document.querySelectorAll('.lcm-chips a').forEach(function (a) {
+        var u; try { u = new URL(a.getAttribute('href'), location.origin); } catch (e) { return; }
+        if (!here(u)) return;
+        var v = (u.searchParams.get('category') || '').toLowerCase();
+        a.classList.toggle('on', v ? (cur === v || cur.indexOf(v + ',') === 0) : (!cur || (root && cur === root.n.toLowerCase())));
+      });
+    }
+    document.addEventListener('click', function (e) {
+      var a = e.target.closest && e.target.closest('.lcm-chips a');
+      if (!a || !document.body.contains(box) || e.ctrlKey || e.metaKey || e.shiftKey) return;
+      var u; try { u = new URL(a.getAttribute('href'), location.origin); } catch (x) { return; }
+      if (!here(u)) return;
+      e.preventDefault(); e.stopPropagation();
+      var v = u.searchParams.get('category'); st.cat = null;
+      if (v) idx.cats.forEach(function (c) { if (path(c.id).join(',') === v) st.cat = c.id; });
+      if (st.cat && root && st.cat === root.id) st.cat = null;
+      change();
+    }, true);
     /* load the next batch well before the bottom is reached */
     if ('IntersectionObserver' in window) {
       new IntersectionObserver(function (es) { if (es[0].isIntersecting && grid._n < list.length) { st.shown += PAGE; drawGrid(); } }, { rootMargin: '1200px 0px' }).observe(more);
