@@ -261,7 +261,7 @@
         var other = it.cv.filter(function (x) { return x !== c && fam(x[0])[0] !== fam(c[0])[0]; })[0] || it.cv.filter(function (x) { return x !== c; })[0];
         alt = other ? other[1] : it.i2;
       }
-      var cnames = it.cv ? it.cv.map(function (x) { return x[0]; }) : (it.cn || []);
+      var cnames = it.cn || (it.cv ? it.cv.map(function (x) { return x[0]; }) : []);
       if (cnames.length > 1) {
         var fams = [];
         cnames.forEach(function (x) { var f = fam(x); if (f[2] && fams.indexOf(f[2]) < 0) fams.push(f[2]); });
