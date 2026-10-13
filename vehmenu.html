@@ -1,0 +1,94 @@
+<!-- LCM 4x4 VEHICLE MENU START -->
+<style id="lcm-vm-css">
+/* LCM 4x4 VEHICLE MENU: the "By Vehicle" drop-down, built from window.LCM_VEH (shop.js) so the menu, the shop filter
+   and the homepage finder always list the same Land Rover / Range Rover models, versions and engines. */
+[data-reference-url="/shop-by-vehicle-menu"].lcm-vm-on .fluid-engine{display:none!important}
+.lcm-vm{width:100%;max-width:1600px;margin:0 auto;padding:0 4vw 2.2vw;box-sizing:border-box;font-family:Barlow,sans-serif;color:#000}
+.lcm-vm-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:1.6vw 2.2vw}
+.lcm-vm-col{min-width:0}
+.lcm-vm-h{display:block;font-family:"Barlow Condensed",sans-serif;font-weight:800;text-transform:uppercase;letter-spacing:.01em;font-size:clamp(17px,1.51vw,29px);line-height:1.05;color:#000!important;text-decoration:none!important;margin:0 0 .55em}
+a.lcm-vm-h:hover{color:#F15F24!important}
+.lcm-vm-sub{margin-top:.9em}
+.lcm-vm ul{list-style:none;margin:0;padding:0}
+.lcm-vm li{margin:0;padding:0}
+.lcm-vm li a{display:block;font-size:clamp(14px,1.06vw,20.3px);line-height:1.8;color:#000!important;text-decoration:none!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lcm-vm li a:hover{color:#F15F24!important}
+.lcm-vm li small{font-size:.74em;color:#8a8a8a;margin-left:.35em;letter-spacing:.01em}
+.lcm-vm-eng{margin-top:.7em;margin-bottom:.2em;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.lcm-vm-eng span{width:100%;font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:clamp(11px,.72vw,13.5px);letter-spacing:.14em;text-transform:uppercase;color:#8a8a8a}
+.lcm-vm-eng a{font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:clamp(12px,.8vw,15px);letter-spacing:.06em;text-transform:uppercase;color:#262626!important;text-decoration:none!important;border:2px solid #DBD9D9;padding:2px 8px;line-height:1.3}
+.lcm-vm-eng a:hover{border-color:#F15F24;color:#F15F24!important}
+.lcm-vm-foot{margin-top:1.8vw;padding-top:1.1vw;border-top:2px solid #DBD9D9;display:flex;flex-wrap:wrap;gap:10px 28px;align-items:center;justify-content:space-between}
+.lcm-vm-all{font-family:"Barlow Condensed",sans-serif;font-weight:800;text-transform:uppercase;letter-spacing:.06em;font-size:clamp(14px,1vw,19px);color:#fff!important;background:#F15F24;padding:.55em 1.1em;text-decoration:none!important}
+.lcm-vm-all:hover{background:#262626}
+.lcm-vm-help{font-size:clamp(13px,.9vw,17px);color:#555}
+.lcm-vm-help a{color:#F15F24!important;font-weight:600}
+@media (max-width:1100px){.lcm-vm-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (max-width:767px){
+  .lcm-vm{padding:0 0 18px}
+  .lcm-vm-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:22px 18px}
+  .lcm-vm li a{white-space:normal;line-height:1.55;padding:3px 0}
+  .lcm-vm-foot{margin-top:20px;padding-top:14px}
+}
+</style>
+<script id="lcm-vm-js">
+(function () {
+  /* LCM 4x4 VEHICLE MENU (14 Oct 2026). Replaces the blocks of the /shop-by-vehicle-menu page inside the
+     "By Vehicle" mega menu with Land Rover / Range Rover models -> versions (with years) -> popular engines.
+     Links use the shop's filter URLs: ?Vehicle=<model>, ?Model=Model: <version>, &Engine=Engine: <engine>.
+     The editable page itself is untouched: if this block is removed the old menu shows again. */
+  var LAYOUT = [
+    { g: ['Defender', 'New Defender'], eng: [['200Tdi', '200Tdi'], ['300Tdi', '300Tdi'], ['Td5', 'Td5'], ['Puma', '2.4 TDCi (Puma)'], ['V8', 'Rover V8']] },
+    { g: ['Series'], eng: [] },
+    { g: ['Discovery', 'Discovery Sport'], eng: [['200Tdi', '200Tdi'], ['300Tdi', '300Tdi'], ['Td5', 'Td5'], ['V8', 'Rover V8'], ['TDV6', '2.7 TDV6'], ['SDV6', '3.0 TDV6 / SDV6']] },
+    { g: ['Range Rover'], eng: [['200Tdi', '200Tdi'], ['300Tdi', '300Tdi'], ['V8', 'Rover V8']] },
+    { g: ['Range Rover Sport'], more: ['Range Rover Evoque', 'Range Rover Velar'], moreTitle: 'Evoque & Velar', eng: [] },
+    { g: ['Freelander'], eng: [['Td4', '2.0 Td4'], ['2.2 Td4/SD4', '2.2 Td4 / SD4']] }
+  ];
+  var TITLE = { 'Series': 'Series' };
+  /* shorter link text under a heading that already says it, e.g. "Range Rover" > "P38" */
+  function short(gn, v) { return (gn === 'Range Rover' || gn === 'Range Rover Sport') && v.indexOf(gn + ' ') === 0 ? v.slice(gn.length + 1) : v; }
+  function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;'); }
+  function q(o) { return '/shop?' + Object.keys(o).map(function (k) { return k + '=' + encodeURIComponent(o[k]).replace(/%20/g, '%20'); }).join('&'); }
+  function html() {
+    var V = window.LCM_VEH; if (!V || !V.groups) return '';
+    var G = {}; V.groups.forEach(function (g) { G[g.n] = g; });
+    var cols = LAYOUT.map(function (c) {
+      var out = '';
+      c.g.forEach(function (gn, i) {
+        var g = G[gn]; if (!g) return;
+        var single = g.v.length === 1;
+        var head = single ? q({ Model: 'Model: ' + g.v[0][0] }) : q({ Vehicle: g.n });
+        out += '<div class="' + (i ? 'lcm-vm-sub' : '') + '"><a class="lcm-vm-h" href="' + head + '">' + esc(TITLE[gn] || gn) + '</a>';
+        out += '<ul>' + g.v.map(function (v) { return '<li><a href="' + q({ Model: 'Model: ' + v[0] }) + '" title="' + esc(v[0]) + ' parts">' + esc(short(gn, v[0])) + ' <small>' + esc(v[1]) + '</small></a></li>'; }).join('') + '</ul>';
+        if (!i && c.eng.length) out += '<div class="lcm-vm-eng"><span>By engine</span>' + c.eng.map(function (e) {
+          return '<a href="' + q({ Vehicle: c.g[0], Engine: 'Engine: ' + e[1] }) + '" title="' + esc(c.g[0] + ' ' + e[1]) + ' parts">' + esc(e[0]) + '</a>';
+        }).join('') + '</div>';
+        out += '</div>';
+      });
+      if (c.more) {
+        out += '<div class="lcm-vm-sub"><span class="lcm-vm-h">' + esc(c.moreTitle) + '</span><ul>' + c.more.map(function (gn) {
+          var g = G[gn]; if (!g) return '';
+          return '<li><a href="' + q({ Model: 'Model: ' + g.v[0][0] }) + '" title="' + esc(g.v[0][0]) + ' parts">' + esc(g.v[0][0].replace(/^Range Rover /, '')) + ' <small>' + esc(g.v[0][1]) + '</small></a></li>';
+        }).join('') + '</ul></div>';
+      }
+      return '<div class="lcm-vm-col">' + out + '</div>';
+    }).join('');
+    return '<nav class="lcm-vm" aria-label="Shop Land Rover and Range Rover parts by vehicle"><div class="lcm-vm-grid">' + cols + '</div>' +
+      '<div class="lcm-vm-foot"><a class="lcm-vm-all" href="/shop">Shop all Land Rover &amp; Range Rover parts →</a>' +
+      '<span class="lcm-vm-help">Not sure what fits? <a href="/contact">Send us your VIN</a> and we’ll check.</span></div></nav>';
+  }
+  function fix(menu) {
+    if (menu.classList.contains('lcm-vm-on')) return;
+    var fe = menu.querySelector('.fluid-engine'); if (!fe) return;
+    var h = html(); if (!h) return;
+    var wrap = document.createElement('div'); wrap.innerHTML = h;
+    fe.parentNode.insertBefore(wrap.firstChild, fe.nextSibling);
+    menu.classList.add('lcm-vm-on');
+  }
+  function scan() { document.querySelectorAll('[data-reference-url="/shop-by-vehicle-menu"]').forEach(fix); }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', scan); else scan();
+  new MutationObserver(scan).observe(document.documentElement, { childList: true, subtree: true });
+})();
+</script>
+<!-- LCM 4x4 VEHICLE MENU END -->
