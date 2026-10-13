@@ -69,11 +69,13 @@ def item_row(it, order):
             tags.setdefault(k, []).append(val)
             if k == "Model":
                 models += 1
+    gallery = [x.get("assetUrl") for x in (it.get("items") or []) if x.get("assetUrl")]
+    first_img = gallery[0] if gallery else it.get("assetUrl")   # product assetUrl alone is a placeholder
     row = {
         "id": it.get("id"),
         "t": it.get("title", "").strip(),
         "u": it.get("fullUrl"),
-        "i": it.get("assetUrl"),
+        "i": first_img,
         "c": it.get("categoryIds") or [],
         "o": order,                                   # store order
         "a": it.get("addedOn"),                       # date added (ms)
@@ -95,9 +97,8 @@ def item_row(it, order):
     keys = {"Manufacturer": "mf", "Model": "md", "Brand": "b", "Axle": "ax", "Voltage": "vo"}
     for k, v in tags.items():
         row[keys[k]] = v
-    imgs = [x.get("assetUrl") for x in (it.get("items") or [])[1:2] if x.get("assetUrl")]
-    if imgs:
-        row["i2"] = imgs[0]                           # second photo (hover)
+    if len(gallery) > 1:
+        row["i2"] = gallery[1]                        # second photo (hover)
     return row
 
 

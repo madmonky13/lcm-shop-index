@@ -87,7 +87,7 @@
 
     /* ---- layout ---- */
     box.innerHTML = '';
-    box.classList.add('lcm-shop');
+    box.classList.add('lcm-newshop');
     var side = el('aside', 'lcm-shop-side'), main = el('div', 'lcm-shop-main');
     var toggle = el('button', 'lcm-shop-toggle', 'Filter &amp; sort'); toggle.type = 'button';
     toggle.onclick = function () { box.classList.toggle('lcm-shop-open'); };
@@ -211,6 +211,7 @@
       if (st.vo) p.set('Voltage', 'Voltage: ' + st.vo);
       if (st.s) p.set('q', st.s);
       if (st.sort !== 'best') p.set('sort', st.sort);
+      if (q.get('lcmshop')) p.set('lcmshop', q.get('lcmshop'));
       var s = p.toString().replace(/\+/g, '%20');
       history.replaceState(null, '', location.pathname + (s ? '?' + s : ''));
     }
