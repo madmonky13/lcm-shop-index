@@ -1,5 +1,6 @@
 """
 build_index.py - builds the small product index that the LCM 4x4 shop pages read.
+(14 Oct 2026: also carries "Engine:" tags as "en" for the Land Rover model -> version -> engine filter.)
 
 Reads the public store list (https://lcm4x4.co.uk/store?format=json, all pages) and writes
 site/index.json with just what the shop grid and filters need. No keys or passwords: it only
@@ -19,7 +20,7 @@ OUT_DIR = "site"
 MIN_ITEMS = 500           # never publish an index smaller than this
 MAX_DROP = 0.2            # or one more than 20% smaller than the last published one
 UNIVERSAL_MODELS = 20     # tagged for this many models or more = fits any vehicle
-TAG_PREFIXES = ("Manufacturer", "Model", "Brand", "Axle", "Voltage")
+TAG_PREFIXES = ("Manufacturer", "Model", "Brand", "Axle", "Voltage", "Engine")
 IMG_PREFIX = "https://images.squarespace-cdn.com/content/v1/5ec6ca0fdd424c12b47a2bd3/"
 
 
@@ -95,7 +96,8 @@ def item_row(it, order):
         row["any"] = 1                                # fits any vehicle
         tags.pop("Manufacturer", None)                # no need to ship 41 model names per item
         tags.pop("Model", None)
-    keys = {"Manufacturer": "mf", "Model": "md", "Brand": "b", "Axle": "ax", "Voltage": "vo"}
+        tags.pop("Engine", None)
+    keys = {"Manufacturer": "mf", "Model": "md", "Brand": "b", "Axle": "ax", "Voltage": "vo", "Engine": "en"}
     for k, v in tags.items():
         row[keys[k]] = v
     if len(gallery) > 1:
