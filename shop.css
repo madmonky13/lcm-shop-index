@@ -67,3 +67,6 @@
   .lcm-card-t{font-size:16px}
   .lcm-card-p{font-size:18px}
 }
+/* v2 vehicle filter: years next to each Land Rover version */
+.lcm-f-opt a small{font-size:.82em;font-weight:400;color:#9a9a9a;letter-spacing:0;margin-left:4px;white-space:nowrap}
+.lcm-f-opt a.on small{color:#7a7a7a}
