@@ -82,3 +82,4 @@
 .lcm-shelf-all:hover{color:#262626!important}
 @media (max-width:767px){.lcm-shelf-t a{font-size:21px}.lcm-shelf-all{font-size:15px}.lcm-shelf-h{margin-top:8px;padding-top:14px}}
 .lcm-shelf-t b{font-family:"Barlow Condensed",sans-serif;font-weight:800;font-size:26px;text-transform:uppercase}
+.lcm-fbtns-eng button{font-size:14px;letter-spacing:.04em;padding:0 4px;line-height:1.1;white-space:normal}
