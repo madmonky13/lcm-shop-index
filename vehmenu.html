@@ -23,6 +23,8 @@ a.lcm-vm-h:hover{color:#F15F24!important}
 .lcm-vm-all:hover{background:#262626}
 .lcm-vm-help{font-size:clamp(13px,.9vw,17px);color:#555}
 .lcm-vm-help a{color:#F15F24!important;font-weight:600}
+.lcm-catfoot{align-self:start}
+.lcm-catfoot .lcm-vm-foot{margin-top:.6vw;font-family:Barlow,sans-serif}
 @media (max-width:1100px){.lcm-vm-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media (max-width:767px){
   .lcm-vm{padding:16px 18px 22px}
@@ -87,7 +89,30 @@ a.lcm-vm-h:hover{color:#F15F24!important}
     fe.parentNode.insertBefore(wrap.firstChild, fe.nextSibling);
     menu.classList.add('lcm-vm-on');
   }
-  function scan() { document.querySelectorAll('[data-reference-url="/shop-by-vehicle-menu"]').forEach(fix); }
+  /* Categories drop-down: the same "Shop all" bar along the bottom, placed in the page's own layout grid under
+     Jordan's columns (first column's left edge to last column's right edge), so his spacing is untouched. */
+  function catFoot(menu) {
+    var fe = menu.querySelector('.fluid-engine'); if (!fe) return;
+    var f = fe.querySelector(':scope > .lcm-catfoot');
+    if (!f) {
+      f = document.createElement('div'); f.className = 'lcm-catfoot';
+      f.innerHTML = '<div class="lcm-vm-foot"><a class="lcm-vm-all" href="/shop">Shop all Land Rover &amp; Range Rover parts \u2192</a>' +
+        '<span class="lcm-vm-help">Not sure what fits? <a href="/contact">Send us your VIN</a> and we\u2019ll check.</span></div>';
+      fe.appendChild(f);
+    }
+    var c0 = 999, c1 = 0, r1 = 0;
+    [].forEach.call(fe.children, function (b) {
+      if (b === f || !b.classList.contains('fe-block')) return;
+      var cs = getComputedStyle(b), a = parseInt(cs.gridColumnStart, 10), z = parseInt(cs.gridColumnEnd, 10), r = parseInt(cs.gridRowEnd, 10);
+      if (a < c0) c0 = a; if (z > c1) c1 = z; if (r > r1) r1 = r;
+    });
+    if (c1 > c0 && r1) { f.style.gridColumn = c0 + ' / ' + c1; f.style.gridRow = r1 + ' / span 1'; }
+  }
+  function scan() {
+    document.querySelectorAll('[data-reference-url="/shop-by-vehicle-menu"]').forEach(fix);
+    document.querySelectorAll('[data-reference-url="/shop-by-categories-menu"]').forEach(catFoot);
+  }
+  window.addEventListener('resize', function () { document.querySelectorAll('[data-reference-url="/shop-by-categories-menu"]').forEach(catFoot); });
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', scan); else scan();
   new MutationObserver(scan).observe(document.documentElement, { childList: true, subtree: true });
 })();
