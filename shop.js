@@ -41,6 +41,29 @@ window.LCM_VEH = {"groups":[{"n":"Series","t":["Series & Lightweight"],"v":[["Se
     ['orange', /orange/i, '#f15f24'], ['purple', /purple|violet|lilac/i, '#6a3fa0'], ['pink', /pink|rose/i, '#e07aa5'], ['white', /white|ivory/i, '#f4f4f4'],
     ['yellow', /yellow|lime/i, '#e5c100'], ['tan', /tan|sand|desert|beige|coyote|brown/i, '#b08d5b']];
   function fam(name) { for (var i = 0; i < FAM.length; i++) if (FAM[i][1].test(name)) return FAM[i]; return [String(name).toLowerCase(), null, null]; }
+  /* exact shades: the same table as the product-page colour circles (footer block "LCM 4x4 COLOUR SWATCHES"), so card dots and
+     product-page circles always match. Two-tone names ("Red / Black") get a half-and-half dot. */
+  var G = function (a, b) { return 'linear-gradient(135deg,' + a + ',' + b + ')'; };
+  var EXACT = {
+    'amber orange': '#ffa21a', 'beige': '#d8c8a8', 'brembo red': '#d0021b', 'carbon grey': '#5b6166', 'cerakote black': '#1a1a1a',
+    'cerakote blue': '#1f5fbf', 'cerakote grey': '#7d7d7d', 'cerakote orange': '#f26722', 'cerakote red': '#c8102e',
+    'charcoal heather': '#3a3c40', 'copper': '#b87333', 'dark grey (lcs)': '#4a4a4a', 'light grey (loy)': '#c6c6c6',
+    'desert tan': '#c2a477', 'desert terrain': 'linear-gradient(135deg,#d9c9a3 33%,#a88e62 33% 66%,#c8b28a 66%)',
+    'digital camouflage': 'linear-gradient(135deg,#8a9a6b 33%,#3b4732 33% 66%,#5f6f4c 66%)', 'dream blue': '#5aa9e6',
+    'flat dark earth': '#7e6a4f', 'glacial valley': G('#eef4f9', '#8fb8d8'), 'snowy summit': G('#ffffff', '#c9d4e2'),
+    'blue prismatic': G('#1c3f94', '#5fb4ea'), 'green prismatic': G('#1d6b3a', '#7fd68f'), 'orange prismatic': G('#c2410c', '#ffb36b'),
+    'pink prismatic': G('#b83280', '#f9a8d4'), 'kahki': '#a39264', 'khaki': '#a39264', 'lime green': '#9acd32', 'matte black': '#1c1c1c',
+    'midnight blue': '#1b1f5e', 'model x orange': '#ff6a13', 'navy blazer': '#262f45', 'navy blue': '#1f2a44', 'neon green': '#4be03a',
+    'od green': '#4f5b33', 'olive green': '#556b2f', 'olive grey': '#6b6e5a', 'olive topo': 'linear-gradient(135deg,#556b2f 40%,#7d8c58 40% 60%,#556b2f 60%)',
+    'onyx black': '#0b0b0b', 'passionate red': '#b3001b', 'regal blue': '#1d3c78', 'sand': '#c9b98a', 'silver graphite': G('#d0d0d0', '#4a4a4a'),
+    'stealth grey': '#4b4f54', 'sunken artifact (green)': '#3f6b4a', 'tidal blue': '#1b6f8a', 'v8 blue': '#0047ab', 'zombie green': '#7fb800'
+  };
+  function one(name) { var e = EXACT[String(name).toLowerCase().trim()]; return e || fam(name)[2]; }
+  function dotCol(name) {
+    var p = String(name).split(/\s*(?:\/|&|\+|\band\b)\s*/i);
+    if (p.length === 2) { var a = one(p[0]), b = one(p[1]); if (a && b && a.indexOf('gradient') < 0 && b.indexOf('gradient') < 0 && a !== b) return 'linear-gradient(135deg,' + a + ' 50%,' + b + ' 50%)'; }
+    return one(name);
+  }
 
   /* the index is stored compactly (v2): put the short category numbers, photo and link prefixes back */
   function norm(idx) {
@@ -316,9 +339,9 @@ window.LCM_VEH = {"groups":[{"n":"Series","t":["Series & Lightweight"],"v":[["Se
         var photo = {}; (it.cv || []).forEach(function (x) { photo[x[0]] = x[1]; });
         var shown = 0, ds = '';
         cnames.forEach(function (x) {
-          var f = fam(x); if (!f[2] || shown >= 6) return; shown++;
+          var dc = dotCol(x); if (!dc || shown >= 6) return; shown++;
           var out = (it.co || []).indexOf(x) >= 0;
-          ds += '<i class="' + (out ? 'x' : '') + '" style="background:' + f[2] + '" title="' + esc(x) + (out ? ' (out of stock)' : '') + '"' + (photo[x] ? ' data-img="' + esc(photo[x]) + '?format=500w"' : '') + '></i>';
+          ds += '<i class="' + (out ? 'x' : '') + '" style="background:' + dc + '" title="' + esc(x) + (out ? ' (out of stock)' : '') + '"' + (photo[x] ? ' data-img="' + esc(photo[x]) + '?format=500w"' : '') + '></i>';
         });
         if (shown > 1) dots = '<span class="lcm-card-sw">' + ds + (cnames.length > shown ? '<em>+' + (cnames.length - shown) + '</em>' : '') + '</span>';
       }
