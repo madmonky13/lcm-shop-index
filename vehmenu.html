@@ -3,7 +3,7 @@
 /* LCM 4x4 VEHICLE MENU: the "By Vehicle" drop-down, built from window.LCM_VEH (shop.js) so the menu, the shop filter
    and the homepage finder always list the same Land Rover / Range Rover models, versions and engines. */
 [data-reference-url="/shop-by-vehicle-menu"].lcm-vm-on .fluid-engine{display:none!important}
-.lcm-vm{width:100%;max-width:1600px;margin:0 auto;padding:0 4vw 2.2vw;box-sizing:border-box;font-family:Barlow,sans-serif;color:#000}
+.lcm-vm{width:100%;max-width:1600px;margin:0 auto;padding:clamp(18px,1.6vw,30px) 4vw 2.2vw;box-sizing:border-box;font-family:Barlow,sans-serif;color:#000}
 .lcm-vm-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:1.6vw 2.2vw}
 .lcm-vm-col{min-width:0}
 .lcm-vm-h{display:block;font-family:"Barlow Condensed",sans-serif;font-weight:800;text-transform:uppercase;letter-spacing:.01em;font-size:clamp(17px,1.51vw,29px);line-height:1.05;color:#000!important;text-decoration:none!important;margin:0 0 .55em}
@@ -25,7 +25,7 @@ a.lcm-vm-h:hover{color:#F15F24!important}
 .lcm-vm-help a{color:#F15F24!important;font-weight:600}
 @media (max-width:1100px){.lcm-vm-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media (max-width:767px){
-  .lcm-vm{padding:4px 18px 22px}
+  .lcm-vm{padding:16px 18px 22px}
   .lcm-vm-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:22px 18px}
   .lcm-vm li a{white-space:normal;line-height:1.55!important;padding:4px 0!important;font-size:15px!important}
   .lcm-vm-h{font-size:20px}
