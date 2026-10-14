@@ -140,6 +140,18 @@ window.LCM_VEH = {"groups":[{"n":"Series","t":["Series & Lightweight"],"v":[["Se
       if (root && st.cat === root.id) st.cat = null;
     }
 
+    /* old Squarespace store category links (/store/accessories/bumpers) are sent here as ?storecat=accessories/bumpers */
+    if (!st.cat && q.get('storecat')) {
+      var sc = q.get('storecat').toLowerCase().replace(/^\/+|\/+$/g, ''), hit = null, near = null;
+      var slug = function (s) { return s.toLowerCase().replace(/&/g, ' ').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); };
+      idx.cats.forEach(function (c) {
+        var sp = path(c.id).map(slug).join('/');
+        if (sp === sc) hit = c.id; else if (!near && sp.split('/').pop() === sc.split('/').pop()) near = c.id;
+      });
+      st.cat = hit || near;
+      if (st.cat && root && st.cat === root.id) st.cat = null;
+    }
+
     function match(it, skip) {
       if (skip !== 'cat' && st.cat && !it._cats[st.cat]) return false;
       if (skip !== 'veh' && st.g && !it.any) {
