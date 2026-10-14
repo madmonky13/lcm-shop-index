@@ -176,8 +176,22 @@ window.LCM_VEH = {"groups":[{"n":"Series","t":["Series & Lightweight"],"v":[["Se
         a.sort(function (x, y) { return (seg(x) - seg(y)) || (x.o - y.o); });
         /* mix the brands in each group (store order kept within a brand), so a big new range
            doesn't fill the first screens on its own */
-        var rank = {}, pos = new Map();
-        a.forEach(function (x, i) { var k = seg(x) + '|' + ((x.b && x.b[0]) || ''); rank[k] = (rank[k] || 0) + 1; pos.set(x, [rank[k], i]); });
+        /* With a vehicle or engine chosen, the parts that fit it are shown in shelves by part type (drawShelves),
+           so like-for-like parts sit together to compare; only the "fits any vehicle" kit is brand-mixed. */
+        var veh = !!(st.g || st.en), rank = {}, pos = new Map(), bfirst = {};
+        a.forEach(function (x, i) { var bn = (x.b && x.b[0]) || ''; if (!(bn in bfirst)) bfirst[bn] = i; });
+        a.forEach(function (x, i) {
+          if (veh && !x.any) { pos.set(x, [0, i]); return; }
+          var k = seg(x) + '|' + ((x.b && x.b[0]) || ''); rank[k] = (rank[k] || 0) + 1; pos.set(x, [rank[k], i]);
+        });
+        if (veh) {
+          /* parts for the vehicle: main parts (kits, shocks, brake kits) first, priced high to low, so the
+             options you'd compare sit side by side and small fittings come after */
+          var fit = a.filter(function (x) { return !x.any; }), anyk = a.filter(function (x) { return x.any; });
+          fit.sort(function (x, y) { return (seg(x) - seg(y)) || ((y.p || 0) - (x.p || 0)) || byName(x.t, y.t); });
+          fit.forEach(function (x, i) { pos.set(x, [0, i]); });
+          a = fit.concat(anyk);
+        }
         a.sort(function (x, y) { var px = pos.get(x), py = pos.get(y); return (seg(x) - seg(y)) || (px[0] - py[0]) || (px[1] - py[1]); });
       }
       return a;
@@ -378,19 +392,96 @@ window.LCM_VEH = {"groups":[{"n":"Series","t":["Series & Lightweight"],"v":[["Se
       var c = e.target.closest && e.target.closest('.lcm-card');
       if (c && !c.contains(e.relatedTarget)) c.classList.remove('lcm-dot');
     });
+    /* ---- shelves (14 Oct 2026): with a vehicle or engine chosen (best-match order, no search, category not a
+       single part type) the parts made for it are grouped by part type, e.g. "Clutches & Parts", "Discs & Pads",
+       each with its first two rows and a "See all" link that opens that part type for the same vehicle. ---- */
+    function shelfMode() { return st.sort === 'best' && !!(st.g || st.en) && !st.s && !(st.cat && !(kids[st.cat] || []).length); }
+    function shelfKey(it) {
+      for (var i = 0; i < it.c.length; i++) {
+        var p = []; for (var k = it.c[i]; k; k = cats[k] && cats[k].p) p.unshift(k);
+        if (!st.cat) return p[p.length - 1];
+        var j = p.indexOf(st.cat); if (j >= 0) return p[j + 1] || st.cat;
+      }
+      return st.cat || '';
+    }
+    function catOrder(id) { var p = []; for (var k = id; k; k = cats[k] && cats[k].p) p.unshift(('000' + String(k).slice(1)).slice(-4)); return p.join('.'); }
+    function params(catId) {
+      var p = new URLSearchParams();
+      if (catId) p.set('category', path(catId).join(','));
+      if (st.md) p.set('Model', 'Model: ' + st.md);
+      else if (st.g) p.set('Vehicle', st.g);
+      if (st.en) p.set('Engine', 'Engine: ' + st.en);
+      if (st.b) p.set('Brand', 'Brand: ' + st.b);
+      if (st.ax) p.set('Axle', 'Axle: ' + st.ax);
+      if (st.vo) p.set('Voltage', 'Voltage: ' + st.vo);
+      return p;
+    }
+    function drawShelves() {
+      var groups = {}, keys = [], rest = [];
+      list.forEach(function (it) {
+        if (it.any) { rest.push(it); return; }
+        var k = shelfKey(it); if (!groups[k]) { groups[k] = []; keys.push(k); } groups[k].push(it);
+      });
+      /* part types with only one or two parts are folded into "More <top category>" so the page isn't all headings */
+      var small = keys.filter(function (k) { return k && groups[k].length < 3 && cats[k].p && cats[k].p !== st.cat && cats[k].p !== (root && root.id); });
+      if (small.length) {
+        small.forEach(function (k) {
+          var t = cats[k].p, f = 'more:' + t;
+          if (!groups[f]) { groups[f] = []; keys.push(f); }
+          groups[f] = groups[f].concat(groups[k]); delete groups[k]; keys.splice(keys.indexOf(k), 1);
+        });
+        keys.forEach(function (k) { if (/^more:/.test(k)) groups[k].sort(function (x, y) { return list.indexOf(x) - list.indexOf(y); }); });
+      }
+      /* order: part types with parts made for the chosen engine first, then the biggest choice first, "More …" last */
+      function exactN(k) { return st.en ? groups[k].filter(function (it) { return exact(it) === 0; }).length : 0; }
+      keys.sort(function (x, y) {
+        var mx = /^more:|^$/.test(x) ? 1 : 0, my = /^more:|^$/.test(y) ? 1 : 0;
+        if (mx !== my) return mx - my;
+        if (!mx && (exactN(y) > 0) !== (exactN(x) > 0)) return exactN(y) > 0 ? 1 : -1;
+        return (!mx && groups[y].length - groups[x].length) || (catOrder(x.replace('more:', '')) < catOrder(y.replace('more:', '')) ? -1 : 1);
+      });
+      var cols = 0; try { cols = getComputedStyle(grid).gridTemplateColumns.split(' ').filter(Boolean).length; } catch (e) {}
+      var cap = Math.max(4, (cols || 4) * 2), frag = document.createDocumentFragment();
+      keys.forEach(function (k) {
+        var g = groups[k], more = /^more:/.test(k), id = more ? k.slice(5) : k;
+        var cut = g.length - cap <= 2 ? g.length : cap;   /* don't hide just one or two */
+        var name = !id ? 'Other parts' : more ? 'More ' + cats[id].n : cats[id].n;
+        var parent = !more && id && cats[id].p && cats[id].p !== (root && root.id) && cats[id].p !== st.cat ? cats[cats[id].p].n : '';
+        var h = el('div', 'lcm-shelf-h'), href = location.pathname + '?' + params(id || st.cat).toString().replace(/\+/g, '%20');
+        h.innerHTML = '<div class="lcm-shelf-t">' + (parent ? '<small>' + esc(parent) + '</small>' : '') + (id ? '<a href="' + esc(href) + '">' + esc(name) + '</a>' : '<b>' + esc(name) + '</b>') + '<span class="lcm-shelf-n">' + g.length + '</span></div>' +
+          (cut < g.length && id ? '<a class="lcm-shelf-all" href="' + esc(href) + '">See all ' + g.length + ' \u2192</a>' : '');
+        h.querySelectorAll('a').forEach(function (a) {
+          a.onclick = function (e) {
+            if (e.ctrlKey || e.metaKey || e.shiftKey) return;
+            e.preventDefault(); st.cat = id; change();
+            var top = box.getBoundingClientRect().top + window.pageYOffset - 110; if (window.pageYOffset > top) window.scrollTo(0, Math.max(0, top));
+          };
+        });
+        frag.appendChild(h);
+        g.slice(0, cut).forEach(function (it) { frag.appendChild(card(it)); });
+      });
+      grid.appendChild(frag);
+      grid._shelves = keys.length;
+      return rest;
+    }
+    var rest = [];
     function drawGrid(reset) {
-      if (reset) { grid.innerHTML = ''; grid._n = 0; used = {}; recent = []; }
-      var upto = Math.min(st.shown, list.length), frag = document.createDocumentFragment();
+      if (reset) {
+        grid.innerHTML = ''; grid._n = 0; grid._shelves = 0; used = {}; recent = [];
+        grid.classList.toggle('lcm-shelved', shelfMode());
+        rest = shelfMode() ? drawShelves() : list;
+      }
+      var upto = Math.min(st.shown, rest.length), frag = document.createDocumentFragment();
       var firstAny = -1;
-      if (st.g && st.sort === 'best') for (var i = 0; i < list.length; i++) if (list[i].any) { firstAny = i; break; }
+      if (st.g && st.sort === 'best') for (var i = 0; i < rest.length; i++) if (rest[i].any) { firstAny = i; break; }
       for (var n = grid._n || 0; n < upto; n++) {
-        if (n === firstAny && firstAny > 0) frag.appendChild(el('div', 'lcm-shop-divider', 'Also fits your ' + esc(st.md || st.g) + ' \u2014 kit that fits any vehicle'));
-        frag.appendChild(card(list[n]));
+        if (n === firstAny && (firstAny > 0 || grid._shelves)) frag.appendChild(el('div', 'lcm-shop-divider', 'Also fits your ' + esc(st.md || st.g) + ' \u2014 kit that fits any vehicle'));
+        frag.appendChild(card(rest[n]));
       }
       grid.appendChild(frag); grid._n = upto;
       more.innerHTML = '';
-      if (upto < list.length) {
-        var b = el('button', 'lcm-shop-morebtn', 'Show more (' + (list.length - upto) + ' left)'); b.type = 'button';
+      if (upto < rest.length) {
+        var b = el('button', 'lcm-shop-morebtn', 'Show more (' + (rest.length - upto) + ' left)'); b.type = 'button';
         b.onclick = function () { st.shown += PAGE * 2; drawGrid(); };
         more.appendChild(b);
       }
@@ -466,7 +557,7 @@ window.LCM_VEH = {"groups":[{"n":"Series","t":["Series & Lightweight"],"v":[["Se
     }
     /* load the next batch well before the bottom is reached */
     if ('IntersectionObserver' in window) {
-      new IntersectionObserver(function (es) { if (es[0].isIntersecting && grid._n < list.length) { st.shown += PAGE; drawGrid(); } }, { rootMargin: '1200px 0px' }).observe(more);
+      new IntersectionObserver(function (es) { if (es[0].isIntersecting && grid._n < rest.length) { st.shown += PAGE; drawGrid(); } }, { rootMargin: '1200px 0px' }).observe(more);
     }
     /* the page's original product block is now replaced */
     document.querySelectorAll('.sqs-block-summary-v2, .summary-block-wrapper').forEach(function (b) { var blk = b.closest('.fe-block') || b.closest('.sqs-block') || b; blk.classList.add('lcm-shop-replaced'); });
