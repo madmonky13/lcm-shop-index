@@ -33,6 +33,12 @@ window.LCM_VEH = {"groups":[{"n":"Series","t":["Series & Lightweight"],"v":[["Se
   function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
   function gbp(n) { return '\u00a3' + Number(n).toFixed(2); }
   function uniq(a) { return a.filter(function (x, i) { return x && a.indexOf(x) === i; }); }
+  /* short engine names for buttons: "2.4 TDCi (Puma)" -> "2.4 Puma", "Rover V8" -> "V8", "3.0 TDV6 / SDV6" -> "3.0 TDV6" */
+  function engShort(e) {
+    var m = String(e).match(/^([\d.]+)\s.*\((.+)\)$/); if (m) return m[1] + ' ' + m[2];
+    if (e === 'Rover V8') return 'V8';
+    return String(e).split('/')[0].trim();
+  }
   function byName(a, b) { return a.localeCompare(b, 'en', { numeric: true }); }
 
   /* colour names -> a family (to spread colours across the grid) and a dot colour */
@@ -241,12 +247,13 @@ window.LCM_VEH = {"groups":[{"n":"Series","t":["Series & Lightweight"],"v":[["Se
       li.appendChild(a); ul.appendChild(li);
       return li;
     }
-    function buttons(title, opts, val, onclick) {
-      var w = el('div', 'lcm-f-block lcm-has-fbtns'), box = el('div', 'lcm-fbtns');
+    function buttons(title, opts, val, onclick, cls) {
+      var w = el('div', 'lcm-f-block lcm-has-fbtns'), box = el('div', 'lcm-fbtns' + (cls ? ' ' + cls : ''));
       box.appendChild(el('div', 'lcm-fbtns-h', esc(title)));
       var row = el('div', 'lcm-fbtns-row');
       [['', 'All']].concat(opts).forEach(function (o) {
         var b = el('button', o[0] === val ? 'on' : '', esc(o[1])); b.type = 'button';
+        if (o[2]) b.title = o[2];
         b.onclick = function () { onclick(o[0]); }; row.appendChild(b);
       });
       box.appendChild(row); w.appendChild(box);
@@ -302,10 +309,11 @@ window.LCM_VEH = {"groups":[{"n":"Series","t":["Series & Lightweight"],"v":[["Se
         }, function () { st.g = ''; st.md = ''; st.en = ''; change(); }));
         /* engine: only engines with at least one engine-specific part for this vehicle (or all, with no vehicle chosen) */
         var ec = counts('en', function (it) { return it.en; });
-        var engs = (st.g ? engOf(st.g, st.md) : Object.keys(ec).sort(byName)).filter(function (e) { return ec[e] || e === st.en; });
-        if (engs.length) wrap.appendChild(dd('en', 'Engine', st.en, !!st.en, function (ul) {
-          engs.forEach(function (e) { opt(ul, e, st.en === e, 1, function () { st.en = st.en === e ? '' : e; open.en = false; change(); }); });
-        }, function () { st.en = ''; change(); }));
+        /* no vehicle chosen: just the common engines (the full list is 19 buttons); pick a vehicle to see all of its engines */
+        var POP = ['200Tdi', '300Tdi', 'Td5', '2.4 TDCi (Puma)', '2.2 TDCi (Puma)', 'Rover V8', '2.7 TDV6', '3.0 TDV6 / SDV6', '2.2 Td4 / SD4'];
+        var engs = (st.g ? engOf(st.g, st.md) : POP.concat(st.en && POP.indexOf(st.en) < 0 ? [st.en] : [])).filter(function (e) { return ec[e] || e === st.en; });
+        /* engines as buttons, like Voltage (14 Oct 2026); short labels, full name on hover */
+        if (engs.length) wrap.appendChild(buttons('Engine', engs.map(function (e) { return [e, engShort(e), e]; }), st.en, function (v) { st.en = v; change(); }, 'lcm-fbtns-eng'));
       }
       /* axle / voltage as buttons (same as before) */
       [['axle', 'ax', 'Axle'], ['voltage', 'vo', 'Voltage']].forEach(function (f) {
