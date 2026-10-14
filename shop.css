@@ -70,3 +70,14 @@
 /* v2 vehicle filter: years next to each Land Rover version */
 .lcm-f-opt a small{font-size:.82em;font-weight:400;color:#9a9a9a;letter-spacing:0;margin-left:4px;white-space:nowrap}
 .lcm-f-opt a.on small{color:#7a7a7a}
+/* shelves: with a vehicle chosen, parts grouped by part type (14 Oct 2026) */
+.lcm-shelf-h{grid-column:1/-1;display:flex;align-items:flex-end;justify-content:space-between;gap:12px;border-top:2px solid #e2e0e0;padding-top:18px;margin-top:14px}
+.lcm-shop-grid>.lcm-shelf-h:first-child{border-top:0;padding-top:0;margin-top:0}
+.lcm-shelf-t small{display:block;font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:13px;letter-spacing:.16em;text-transform:uppercase;color:#8a8a8a;margin-bottom:2px}
+.lcm-shelf-t a{font-family:"Barlow Condensed",sans-serif;font-weight:800;font-size:26px;line-height:1.05;text-transform:uppercase;color:#000;text-decoration:none}
+.lcm-shelf-t a:hover{color:var(--lcm-orange,#F15F24)}
+.lcm-shelf-n{font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:16px;color:#8a8a8a;margin-left:10px}
+.lcm-shelf-all{flex:none;font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:17px;letter-spacing:.08em;text-transform:uppercase;color:var(--lcm-orange,#F15F24)!important;text-decoration:none;white-space:nowrap}
+.lcm-shelf-all:hover{color:#262626!important}
+@media (max-width:767px){.lcm-shelf-t a{font-size:21px}.lcm-shelf-all{font-size:15px}.lcm-shelf-h{margin-top:8px;padding-top:14px}}
+.lcm-shelf-t b{font-family:"Barlow Condensed",sans-serif;font-weight:800;font-size:26px;text-transform:uppercase}
