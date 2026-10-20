@@ -51,6 +51,10 @@ window.LCM_VEH = {"groups":[{"n":"Series","t":["Series & Lightweight"],"v":[["Se
      product-page circles always match. Two-tone names ("Red / Black") get a half-and-half dot. */
   var G = function (a, b) { return 'linear-gradient(135deg,' + a + ',' + b + ')'; };
   var EXACT = {
+    'tricolore': 'linear-gradient(135deg,#d0021b 33%,#f2f2f2 33% 66%,#1f4fbf 66%)', 'snowflake green': G('#1f9d55', '#e8f5ee'), 'paw edition': G('#1f5fbf', '#f2f2f2'),
+    'cyber violet': '#7b3fe4', 'fighter pilot': '#6b6f72', 'spooky web': G('#f26722', '#f2f2f2'), 'guidance': G('#2c4a6b', '#c9a35b'),
+    'phantom squadron': G('#3a3c40', '#8a8d90'), 'nebula violet': '#6a2fb5', 'wasteland relic': G('#c9b26b', '#4f8a7a'), 'capsule orange': '#f26722',
+    'lake blue': '#2f7fd0', 'stellar sky': G('#1c2f5a', '#dfe6f0'), 'shadow dune': G('#7a5a3c', '#e8dcc8'),
     'amber orange': '#ffa21a', 'beige': '#d8c8a8', 'brembo red': '#d0021b', 'carbon grey': '#5b6166', 'cerakote black': '#1a1a1a',
     'cerakote blue': '#1f5fbf', 'cerakote grey': '#7d7d7d', 'cerakote orange': '#f26722', 'cerakote red': '#c8102e',
     'charcoal heather': '#3a3c40', 'copper': '#b87333', 'dark grey (lcs)': '#4a4a4a', 'light grey (loy)': '#c6c6c6',
@@ -61,7 +65,7 @@ window.LCM_VEH = {"groups":[{"n":"Series","t":["Series & Lightweight"],"v":[["Se
     'pink prismatic': G('#b83280', '#f9a8d4'), 'kahki': '#a39264', 'khaki': '#a39264', 'lime green': '#9acd32', 'matte black': '#1c1c1c',
     'midnight blue': '#1b1f5e', 'model x orange': '#ff6a13', 'navy blazer': '#262f45', 'navy blue': '#1f2a44', 'neon green': '#4be03a',
     'od green': '#4f5b33', 'olive green': '#556b2f', 'olive grey': '#6b6e5a', 'olive topo': 'linear-gradient(135deg,#556b2f 40%,#7d8c58 40% 60%,#556b2f 60%)',
-    'onyx black': '#0b0b0b', 'passionate red': '#b3001b', 'regal blue': '#1d3c78', 'sand': '#c9b98a', 'silver graphite': G('#d0d0d0', '#4a4a4a'),
+    'onyx black': '#0b0b0b', 'passionate red': '#b3001b', 'wine red': '#7b1e2b', 'midnight red': G('#111111', '#b3001b'), 'zombie green': '#6fbf3a', 'full river red': '#c8102e', 'astral cobalt': '#1c6a9e', 'blue porcelain': '#1f3f7a', 'summer palm': '#5fc9a8', 'palm breeze': G('#e8c65a', '#4aa8c9'), '19th anniversary edition': G('#0a4954', '#0595a8'), 'osight edition': G('#2c2c2c', '#9a9a9a'), 'auspicious clouds': G('#941724', '#d74e52'), 'roadster': G('#292929', '#18ace2'), 'ancient script': G('#c9ad8b', '#887157'), 'horse': G('#090a0b', '#b0b0af'), 'racing stripes': G('#1a1a1a', '#b3b1b0'), 'onyx orange': '#e8641e', 'regal blue': '#1d3c78', 'sand': '#c9b98a', 'silver graphite': G('#d0d0d0', '#4a4a4a'),
     'stealth grey': '#4b4f54', 'sunken artifact (green)': '#3f6b4a', 'tidal blue': '#1b6f8a', 'v8 blue': '#0047ab', 'zombie green': '#7fb800'
   };
   function one(name) { var e = EXACT[String(name).toLowerCase().trim()]; return e || fam(name)[2]; }
@@ -130,7 +134,7 @@ window.LCM_VEH = {"groups":[{"n":"Series","t":["Series & Lightweight"],"v":[["Se
     /* ---- state from the URL. Old links (?Manufacturer=...&Model=Model: Discovery 1) still work ---- */
     var q = new URLSearchParams(location.search);
     function tagVal(k) { return (q.get(k) || '').replace(new RegExp('^' + k + ':\\s*'), ''); }
-    var st = { cat: null, g: '', md: '', en: tagVal('Engine'), b: tagVal('Brand'), ax: tagVal('Axle'), vo: tagVal('Voltage'), s: q.get('q') || '', sort: q.get('sort') || 'best', shown: PAGE };
+    var st = { cat: null, g: '', md: '', en: tagVal('Engine'), b: tagVal('Brand'), ax: tagVal('Axle'), vo: tagVal('Voltage'), s: q.get('q') || '', sort: q.get('sort') || 'best', sale: q.get('sale') ? '1' : '', shown: PAGE };
     (function () {
       var m = tagVal('Model'), g = q.get('Vehicle') || '', mf = tagVal('Manufacturer');
       if (m && V2G[m]) { st.md = m; st.g = V2G[m]; }
@@ -168,6 +172,7 @@ window.LCM_VEH = {"groups":[{"n":"Series","t":["Series & Lightweight"],"v":[["Se
       if (skip !== 'b' && st.b && (it.b || []).indexOf(st.b) < 0) return false;
       if (skip !== 'ax' && st.ax && (it.ax || []).indexOf(st.ax) < 0) return false;
       if (skip !== 'vo' && st.vo && (it.vo || []).indexOf(st.vo) < 0) return false;
+      if (skip !== 'sale' && st.sale && !it.w) return false;   /* ?sale=1: only products with a was-price (20 Oct 2026) */
       if (st.s) {
         var hay = (it.t + ' ' + (it.b || []).join(' ')).toLowerCase();
         if (!st.s.toLowerCase().split(/\s+/).every(function (w) { return !w || hay.indexOf(w) >= 0; })) return false;
@@ -192,16 +197,11 @@ window.LCM_VEH = {"groups":[{"n":"Series","t":["Series & Lightweight"],"v":[["Se
       else {
         var seg = function (x) { return ((st.g && x.any) ? 4 : 0) + exact(x) * 2 + (x.s ? 0 : 1); };
         a.sort(function (x, y) { return (seg(x) - seg(y)) || (x.o - y.o); });
-        /* mix the brands in each group (store order kept within a brand), so a big new range
-           doesn't fill the first screens on its own */
-        /* With a vehicle or engine chosen, the parts that fit it are shown in shelves by part type (drawShelves),
-           so like-for-like parts sit together to compare; only the "fits any vehicle" kit is brand-mixed. */
-        var veh = !!(st.g || st.en), rank = {}, pos = new Map(), bfirst = {};
-        a.forEach(function (x, i) { var bn = (x.b && x.b[0]) || ''; if (!(bn in bfirst)) bfirst[bn] = i; });
-        a.forEach(function (x, i) {
-          if (veh && !x.any) { pos.set(x, [0, i]); return; }
-          var k = seg(x) + '|' + ((x.b && x.b[0]) || ''); rank[k] = (rank[k] || 0) + 1; pos.set(x, [rank[k], i]);
-        });
+        /* Store order (as set in Squarespace) within each group. Brands are no longer forced to alternate
+           (Jordan, 14 Oct: "axe, torch, axe, torch" looked daft). With a vehicle or engine chosen, the parts that
+           fit it are shown in shelves by part type (drawShelves). */
+        var veh = !!(st.g || st.en), pos = new Map();
+        a.forEach(function (x, i) { pos.set(x, [0, i]); });
         if (veh) {
           /* parts for the vehicle: main parts (kits, shocks, brake kits) first, priced high to low, so the
              options you'd compare sit side by side and small fittings come after */
@@ -287,6 +287,9 @@ window.LCM_VEH = {"groups":[{"n":"Series","t":["Series & Lightweight"],"v":[["Se
         }
         sub(root ? root.id : 'top').forEach(function (k) { addCat(k, 1); });
       }, function () { st.cat = null; change(); }));
+      /* on sale (20 Oct 2026): the homepage "See everything on sale" button links to /shop?sale=1 */
+      var saleN = 0; items.forEach(function (it) { if (it.w && match(it, 'sale')) saleN++; });
+      if (saleN || st.sale) wrap.appendChild(buttons('Offers', [['1', 'On sale (' + saleN + ')']], st.sale, function (v) { st.sale = v; change(); }, 'lcm-fbtns-sale'));
       /* vehicle: Land Rover / Range Rover model, then version (with years), then engine */
       if (want.indexOf('vehicle') >= 0) {
         var vlabel = st.md || st.g;
@@ -434,6 +437,7 @@ window.LCM_VEH = {"groups":[{"n":"Series","t":["Series & Lightweight"],"v":[["Se
       if (st.b) p.set('Brand', 'Brand: ' + st.b);
       if (st.ax) p.set('Axle', 'Axle: ' + st.ax);
       if (st.vo) p.set('Voltage', 'Voltage: ' + st.vo);
+      if (st.sale) p.set('sale', '1');
       return p;
     }
     function drawShelves() {
@@ -514,6 +518,7 @@ window.LCM_VEH = {"groups":[{"n":"Series","t":["Series & Lightweight"],"v":[["Se
       if (st.g) chips.push(['veh', st.md || st.g]);
       if (st.en) chips.push(['en', st.en]);
       ['b', 'ax', 'vo'].forEach(function (k) { if (st[k]) chips.push([k, st[k]]); });
+      if (st.sale) chips.push(['sale', 'On sale']);
       if (st.s) chips.push(['s', '\u201c' + st.s + '\u201d']);
       bar.innerHTML = '<span class="lcm-shop-count">' + list.length + ' product' + (list.length === 1 ? '' : 's') + '</span>' +
         chips.map(function (c) { return '<button type="button" data-k="' + c[0] + '">' + esc(c[1]) + ' \u2715</button>'; }).join('');
@@ -528,6 +533,7 @@ window.LCM_VEH = {"groups":[{"n":"Series","t":["Series & Lightweight"],"v":[["Se
       if (st.b) p.set('Brand', 'Brand: ' + st.b);
       if (st.ax) p.set('Axle', 'Axle: ' + st.ax);
       if (st.vo) p.set('Voltage', 'Voltage: ' + st.vo);
+      if (st.sale) p.set('sale', '1');
       if (st.s) p.set('q', st.s);
       if (st.sort !== 'best') p.set('sort', st.sort);
       if (q.get('lcmshop')) p.set('lcmshop', q.get('lcmshop'));
