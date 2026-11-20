@@ -83,6 +83,13 @@ def item_row(it, order):
         "a": it.get("addedOn"),                       # date added (ms)
         "s": 1 if in_stock else 0,
     }
+    # Homepage rows read these, so Google can see the featured products too
+    # (it cannot load the /store?format=json pages the homepage used before).
+    plain_tags = set(it.get("tags") or [])
+    if "Featured" in plain_tags:
+        row["ft"] = 1                                # homepage Featured card and row
+    if "New In" in plain_tags:
+        row["nw"] = 1                                # homepage New In row
     if prices:
         low = min(prices)
         row["p"] = low[0]
